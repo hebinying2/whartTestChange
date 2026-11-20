@@ -300,6 +300,7 @@ class LLMConfigBundleRuntimeTests(TestCase):
             item["value"] for item in response.data["data"]["choices"]
         ]
         self.assertIn("deepseek", provider_values)
+        self.assertIn("zhipu", provider_values)
 
     @patch("langgraph_integration.deepseek_chat_model.ReasoningCompatibleChatDeepSeek")
     def test_create_llm_instance_uses_chatdeepseek_for_deepseek_provider(
@@ -516,6 +517,24 @@ class LLMConfigBundleRuntimeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["config_name"], "runtime-bundle")
         self.assertEqual(response.data["resolved_source"], "personal_slot")
+
+
+class ProviderChoicesAPITests(TestCase):
+    def test_provider_choices_endpoint_includes_zhipu(self):
+        user = get_user_model().objects.create_user(
+            username="provider-choices-user",
+            password="password123",
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+
+        response = client.get(reverse("provider_choices_api"))
+
+        self.assertEqual(response.status_code, 200)
+        provider_values = [
+            item["value"] for item in response.data["data"]["choices"]
+        ]
+        self.assertIn("zhipu", provider_values)
 
 
 class CreateLLMInstanceStreamingTests(SimpleTestCase):

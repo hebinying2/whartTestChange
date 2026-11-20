@@ -59,5 +59,11 @@
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vue-tsc": "^2.2.8"
+  },
+  "allowScripts": {
+    "vue-demi@0.14.10": true,
+    "@parcel/watcher@2.5.4": true,
+    "@tailwindcss/oxide@4.1.6": true,
+    "esbuild@0.25.4": true
   }
 }

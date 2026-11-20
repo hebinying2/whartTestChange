@@ -13,6 +13,7 @@ class LLMConfig(models.Model):
         ('openai_compatible', 'OpenAI 兼容'),
         ('deepseek', 'DeepSeek'),
         ('qwen', 'Qwen/通义千问'),
+        ('zhipu', 'Zhipu/智谱'),
     ]
 
     config_name = models.CharField(max_length=255, unique=True, verbose_name="配置名称",

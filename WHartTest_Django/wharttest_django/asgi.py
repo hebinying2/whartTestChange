@@ -8,10 +8,18 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 # 导入 os 模块，用于设置进程级环境变量与 umask。
+import asyncio
 import os
+import sys
 
 # 设置 umask，确保新建文件权限便于同组协作。
 os.umask(0o002)
+
+# Windows 下 uvicorn 默认使用 ProactorEventLoop，而 psycopg 的异步模式
+# （LangGraph AsyncPostgresSaver）要求 SelectorEventLoop。必须在事件循环
+# 创建前设置策略，否则异步数据库操作会在请求中报事件循环不兼容错误。
+if sys.platform == "win32" and hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # 指定 Django 配置模块路径（若未提前设置）。
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "wharttest_django.settings")

@@ -292,6 +292,7 @@ def create_llm_instance(active_config, temperature=0.7, streaming=False):
     - openai_compatible: ChatOpenAI（OpenAI兼容协议）
     - deepseek: ChatDeepSeek（DeepSeek 原生适配）
     - qwen: ChatQwen（阿里云百炼通义千问）
+    - zhipu: ChatOpenAI（智谱 OpenAI 兼容协议）
 
     关键参数说明：
     - timeout: 请求超时时间（秒），防止无限期等待
@@ -356,7 +357,7 @@ def create_llm_instance(active_config, temperature=0.7, streaming=False):
 
             llm = ChatQwen(**llm_kwargs)
         else:
-            if provider != "openai_compatible":
+            if provider not in ("openai_compatible", "zhipu"):
                 logger.warning(
                     "Unknown provider '%s', fallback to openai_compatible", provider
                 )

@@ -265,7 +265,9 @@ const text = computed(() => (
         providerOpenAICompatible: 'OpenAI Compatible',
         providerDeepSeek: 'DeepSeek',
         providerQwen: 'Qwen',
+        providerZhipu: 'Zhipu',
         deepseekApiHint: 'DeepSeek is recommended with the official /v1 endpoint and the dedicated DeepSeek provider',
+        zhipuApiHint: 'Zhipu is recommended with the OpenAI-compatible /api/paas/v4 endpoint',
       }
     : {
         addConfig: '新增 LLM 配置',
@@ -315,7 +317,9 @@ const text = computed(() => (
         providerOpenAICompatible: 'OpenAI 兼容',
         providerDeepSeek: 'DeepSeek',
         providerQwen: 'Qwen/通义千问',
+        providerZhipu: 'Zhipu/智谱',
         deepseekApiHint: 'DeepSeek 建议使用官方 /v1 地址，并选择专用 DeepSeek 供应商',
+        zhipuApiHint: '智谱建议使用 OpenAI 兼容地址 https://open.bigmodel.cn/api/paas/v4',
       }
 ));
 
@@ -329,6 +333,9 @@ const localizeProviderLabel = (value: string, fallback?: string) => {
   if (value === 'qwen') {
     return text.value.providerQwen;
   }
+  if (value === 'zhipu') {
+    return text.value.providerZhipu;
+  }
   return fallback || value;
 };
 
@@ -338,6 +345,7 @@ const providerChoices = ref<Array<{ label: string; value: string }>>([
   { label: 'openai_compatible', value: 'openai_compatible' },
   { label: 'deepseek', value: 'deepseek' },
   { label: 'qwen', value: 'qwen' },
+  { label: 'zhipu', value: 'zhipu' },
 ]);
 const providerOptions = computed(() => providerChoices.value.map((item) => ({
   label: localizeProviderLabel(item.value, item.label),
@@ -347,6 +355,7 @@ const loadingModels = ref(false);
 const testingModel = ref(false);
 const DEEPSEEK_DEFAULT_API_URL = 'https://api.deepseek.com/v1';
 const QWEN_DEFAULT_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const ZHIPU_DEFAULT_API_URL = 'https://open.bigmodel.cn/api/paas/v4';
 const defaultFormData: CreateLlmConfigRequest = {
   config_name: '',
   provider: 'openai_compatible',
@@ -384,7 +393,9 @@ const apiUrlPlaceholder = computed(() => (
     ? DEEPSEEK_DEFAULT_API_URL
     : formData.value.provider === 'qwen'
       ? QWEN_DEFAULT_API_URL
-      : 'https://api.openai.com/v1'
+      : formData.value.provider === 'zhipu'
+        ? ZHIPU_DEFAULT_API_URL
+        : 'https://api.openai.com/v1'
 ));
 
 const apiKeyPlaceholder = computed(() => (
@@ -396,7 +407,9 @@ const apiHintText = computed(() => (
     ? text.value.deepseekApiHint
     : formData.value.provider === 'qwen'
       ? text.value.qwenApiHint
-      : text.value.openaiApiHint
+      : formData.value.provider === 'zhipu'
+        ? text.value.zhipuApiHint
+        : text.value.openaiApiHint
 ));
 
 const invalidateAsyncState = () => {
@@ -439,6 +452,9 @@ const handleProviderChange = (provider?: string) => {
   }
   if (provider === 'qwen' && !formData.value.api_url) {
     formData.value.api_url = QWEN_DEFAULT_API_URL;
+  }
+  if (provider === 'zhipu' && !formData.value.api_url) {
+    formData.value.api_url = ZHIPU_DEFAULT_API_URL;
   }
 };
 
