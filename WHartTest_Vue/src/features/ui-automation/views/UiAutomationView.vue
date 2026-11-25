@@ -42,6 +42,9 @@
         <a-tab-pane key="actuators" :title="tl('执行器')">
           <ActuatorList ref="actuatorListRef" />
         </a-tab-pane>
+        <a-tab-pane key="app-devices" :title="tl('APP 设备')">
+          <DeviceProfileList ref="deviceProfileListRef" />
+        </a-tab-pane>
       </a-tabs>
       <GenerateUiCasesModal
         v-model:visible="showGenerateModal"
@@ -67,6 +70,7 @@ import BatchRecordList from './BatchRecordList.vue'
 import PublicDataList from './PublicDataList.vue'
 import EnvConfigList from './EnvConfigList.vue'
 import ActuatorList from './ActuatorList.vue'
+import DeviceProfileList from './DeviceProfileList.vue'
 import GenerateUiCasesModal from '../components/generate/GenerateUiCasesModal.vue'
 import { sendChatMessageStream } from '@/features/langgraph/services/chatService'
 import type { ChatRequest } from '@/features/langgraph/types/chat'
@@ -94,7 +98,8 @@ const batchRecordListRef = ref()
 const publicDataListRef = ref()
 const envConfigListRef = ref()
 const actuatorListRef = ref()
-void [modulePanelRef, pageListRef, pageStepListRef, testCaseListRef, executionRecordListRef, batchRecordListRef, publicDataListRef, envConfigListRef, actuatorListRef]
+const deviceProfileListRef = ref()
+void [modulePanelRef, pageListRef, pageStepListRef, testCaseListRef, executionRecordListRef, batchRecordListRef, publicDataListRef, envConfigListRef, actuatorListRef, deviceProfileListRef]
 
 // ---------------------------------------------------------------------------
 // AI 一键生成 UI 用例
@@ -239,6 +244,9 @@ watch(activeTab, (newTab) => {
       break
     case 'actuators':
       actuatorListRef.value?.refresh?.()
+      break
+    case 'app-devices':
+      deviceProfileListRef.value?.refresh?.()
       break
   }
 })

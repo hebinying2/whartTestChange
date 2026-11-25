@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     UiModule, UiPage, UiElement, UiPageSteps, UiPageStepsDetailed,
-    UiTestCase, UiCaseStepsDetailed, UiExecutionRecord, UiPublicData, UiEnvironmentConfig
+    UiTestCase, UiCaseStepsDetailed, UiExecutionRecord, UiPublicData, UiEnvironmentConfig,
+    UiDeviceProfile
 )
 
 
@@ -83,3 +84,10 @@ class UiEnvironmentConfigAdmin(admin.ModelAdmin):
     list_display = ('name', 'project', 'base_url', 'is_default')
     list_filter = ('project', 'is_default')
     search_fields = ('name', 'base_url')
+
+
+@admin.register(UiDeviceProfile)
+class UiDeviceProfileAdmin(admin.ModelAdmin):
+    list_display = ('name', 'project', 'platform', 'device_type', 'avd_name', 'status', 'creator', 'created_at')
+    list_filter = ('project', 'platform', 'device_type', 'status')
+    search_fields = ('name', 'avd_name', 'device_name')

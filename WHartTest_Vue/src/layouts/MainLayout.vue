@@ -201,6 +201,18 @@
             </a-menu-item>
           </a-sub-menu>
 
+          <!-- 工具子菜单 -->
+          <a-sub-menu key="tools" v-if="hasDeviceCommandPermission">
+            <template #icon><icon-tool /></template>
+            <template #title>
+              <span @click="handleToolsClick">{{ toolsMenuLabel }}</span>
+            </template>
+            <a-menu-item key="device-command">
+              <template #icon><icon-command /></template>
+              <router-link to="/device-command">{{ deviceCommandMenuLabel }}</router-link>
+            </a-menu-item>
+          </a-sub-menu>
+
           <a-menu-item key="langgraph-chat" v-if="hasLangGraphChatPermission">
             <template #icon><icon-message /></template>
             <a href="#" @click="checkProjectAndNavigate($event, '/langgraph-chat')">{{ chatMenuLabel }}</a>
@@ -323,6 +335,7 @@ import {
   IconCodeBlock,
   IconFile,
   IconTool,
+  IconCommand,
   IconMessage,
   IconCloud,
   IconBook,
@@ -388,6 +401,8 @@ const operationLogsMenuLabel = computed(() => (locale.value === 'en-US' ? 'Logs'
 const modelsMenuLabel = computed(() => (locale.value === 'en-US' ? 'Models' : tl('LLM配置')));
 const mcpMenuLabel = computed(() => (locale.value === 'en-US' ? 'MCP' : tl('MCP配置')));
 const skillsMenuLabel = computed(() => (locale.value === 'en-US' ? 'Skills' : tl('Skills管理')));
+const toolsMenuLabel = computed(() => (locale.value === 'en-US' ? 'Tools' : tl('工具')));
+const deviceCommandMenuLabel = computed(() => (locale.value === 'en-US' ? 'Device Command' : tl('设备指令查询')));
 
 // 更新说明预览（显示完整内容）
 const releaseNotesPreview = computed(() => {
@@ -444,6 +459,7 @@ const activeMenu = computed(() => {
   if (path.startsWith('/langgraph-chat')) return 'langgraph-chat';
   if (path.startsWith('/task-center')) return 'task-center';
   if (path.startsWith('/file-management')) return 'file-management';
+  if (path.startsWith('/device-command')) return 'device-command';
   if (path.startsWith('/knowledge-management')) return 'knowledge-management';
   if (path.startsWith('/api-keys')) return 'api-keys';
   if (path.startsWith('/remote-mcp-configs')) return 'remote-mcp-configs';
@@ -545,6 +561,10 @@ const hasSkillsPermission = computed(() => {
   return authStore.hasPermission('skills.view_skill');
 });
 
+const hasDeviceCommandPermission = computed(() => {
+  return authStore.hasPermission('device_tools.view_device_command');
+});
+
 // 检查是否有测试管理菜单项的权限
 const hasTestManagementMenuItems = computed(() => {
   return hasTestcasesPermission.value ||
@@ -621,6 +641,23 @@ const handleSystemManagementClick = (event: MouseEvent) => {
   nextTick(() => {
     console.log('系统管理菜单状态更新:', openKeys.value);
   });
+};
+
+// 处理点击工具图标的事件（与测试管理/系统管理一致）
+const handleToolsClick = (event: MouseEvent) => {
+  if (event) {
+    event.stopPropagation();
+  }
+  if (collapsed.value) {
+    collapsed.value = false;
+    openKeys.value = ['tools'];
+    return;
+  }
+  if (openKeys.value.includes('tools')) {
+    openKeys.value = openKeys.value.filter(key => key !== 'tools');
+  } else {
+    openKeys.value.push('tools');
+  }
 };
 
 // 检查是否选择了项目，用于需要项目的菜单项

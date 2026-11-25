@@ -33,6 +33,11 @@ export const UiSocketEnum = {
   RECORDER_FRAME: 'u_recorder_frame',     // 浏览器画面帧
   RECORDER_ACTION: 'u_recorder_action',   // 录制动作增量
   RECORDER_STATUS: 'u_recorder_status',   // 录制状态/错误
+  // APP 自动化
+  APP_DEVICE_START: 'u_app_device_start', // APP 设备启动
+  APP_DEVICE_STOP: 'u_app_device_stop',   // APP 设备停止
+  APP_DEVICE_STATUS: 'u_app_device_status', // APP 设备状态查询
+  APP_DEVICE_RESULT: 'u_app_device_result', // APP 设备操作结果
 } as const
 
 /** Socket 消息模型 */

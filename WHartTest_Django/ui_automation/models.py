@@ -510,6 +510,69 @@ class UiEnvironmentConfig(models.Model):
         super().save(*args, **kwargs)
 
 
+class UiDeviceProfile(models.Model):
+    """APP 自动化设备配置（第一版仅支持 Android 模拟器）"""
+
+    STATUS_CHOICES = [
+        ('stopped', _('已停止')),
+        ('starting', _('启动中')),
+        ('running', _('运行中')),
+        ('stopping', _('停止中')),
+        ('error', _('异常')),
+    ]
+
+    PLATFORM_CHOICES = [
+        ('android', _('Android')),
+        ('ios', _('iOS')),
+    ]
+
+    DEVICE_TYPE_CHOICES = [
+        ('emulator', _('模拟器')),
+        ('real', _('真机')),
+    ]
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE,
+        related_name='ui_device_profiles', verbose_name=_('所属项目')
+    )
+    name = models.CharField(_('设备名称'), max_length=64)
+    platform = models.CharField(
+        _('平台'), max_length=16, choices=PLATFORM_CHOICES, default='android'
+    )
+    device_type = models.CharField(
+        _('设备类型'), max_length=16, choices=DEVICE_TYPE_CHOICES, default='emulator'
+    )
+    avd_name = models.CharField(_('AVD 名称'), max_length=128)
+    android_version = models.CharField(_('Android 版本'), max_length=32)
+    device_name = models.CharField(_('Device Name'), max_length=128)
+    udid = models.CharField(_('设备 UDID'), max_length=128, null=True, blank=True)
+    cpu_core = models.PositiveIntegerField(_('CPU 核数'), default=4)
+    ram_size_mb = models.PositiveIntegerField(_('内存（MB）'), default=4096)
+    screen_resolution = models.CharField(_('分辨率'), max_length=32, blank=True, default='')
+    headless = models.BooleanField(_('无窗口模式'), default=True)
+    snapshot_enabled = models.BooleanField(_('启用快照'), default=True)
+    status = models.CharField(
+        _('状态'), max_length=32, choices=STATUS_CHOICES, default='stopped'
+    )
+    description = models.TextField(_('描述'), blank=True, null=True)
+    creator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='created_ui_device_profiles', verbose_name=_('创建人')
+    )
+    created_at = models.DateTimeField(_('创建时间'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('更新时间'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('APP 设备配置')
+        verbose_name_plural = _('APP 设备配置')
+        ordering = ['project', 'name']
+        unique_together = ('project', 'name')
+        db_table = 'ui_device_profile'
+
+    def __str__(self):
+        return f"{self.project.name} - {self.name}"
+
+
 class UiAuthState(models.Model):
     """环境登录态快照（Playwright storageState：cookies + localStorage + sessionStorage）。
 

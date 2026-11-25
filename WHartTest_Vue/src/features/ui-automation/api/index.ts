@@ -27,6 +27,8 @@ import type {
   UiEnvironmentConfigForm,
   UiAuthState,
   UiAuthStateForm,
+  UiDeviceProfile,
+  UiDeviceProfileForm,
   PaginatedResponse,
   TraceData,
 } from '../types'
@@ -321,6 +323,22 @@ export const actuatorApi = {
       actuator_id: actuatorId,
       config,
     }),
+}
+
+// ==================== APP 设备配置 ====================
+export const deviceProfileApi = {
+  list: (params?: { project?: number; platform?: string; device_type?: string; search?: string }) =>
+    request.get<PaginatedResponse<UiDeviceProfile>>(`${BASE_URL}/device-profiles/`, { params }),
+
+  get: (id: number) => request.get<UiDeviceProfile>(`${BASE_URL}/device-profiles/${id}/`),
+
+  create: (data: UiDeviceProfileForm) =>
+    request.post<UiDeviceProfile>(`${BASE_URL}/device-profiles/`, data),
+
+  update: (id: number, data: Partial<UiDeviceProfileForm>) =>
+    request.patch<UiDeviceProfile>(`${BASE_URL}/device-profiles/${id}/`, data),
+
+  delete: (id: number) => request.delete(`${BASE_URL}/device-profiles/${id}/`),
 }
 
 

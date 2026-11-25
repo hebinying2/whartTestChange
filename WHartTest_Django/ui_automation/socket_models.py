@@ -34,6 +34,10 @@ class UiSocketEnum:
     EXEC_FRAME = 'u_exec_frame'           # 执行过程画面帧（执行器→后端→前端，直播）
     SET_ACTUATOR_INFO = 't_set_actuator_info'  # 设置执行器信息
     SET_ACTUATOR_CONFIG = 't_set_actuator_config'  # 平台下发执行器配置
+    APP_DEVICE_START = 'u_app_device_start'       # APP 设备启动（前端→执行器）
+    APP_DEVICE_STOP = 'u_app_device_stop'         # APP 设备停止（前端→执行器）
+    APP_DEVICE_STATUS = 'u_app_device_status'     # APP 设备状态查询（前端→执行器）
+    APP_DEVICE_RESULT = 'u_app_device_result'     # APP 设备操作结果（执行器→前端）
     # 录制器
     RECORDER_START = 'u_recorder_start'    # 前端→后端：绑定录制会话，启动帧中继
     RECORDER_INPUT = 'u_recorder_input'    # 前端→后端：浏览器输入事件（鼠标/键盘/滚轮）

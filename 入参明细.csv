@@ -1,0 +1,195 @@
+﻿序号,来源文件,项目/分组,Service ID,功能点名称,输入参数,输入参数数据类型,输入参数数据范围,输入参数定义,输入参数是否必选
+1,E系列项目 Service ID 表.xlsx,E系列项目,20101,平台获取版本信息,无,,,,
+2,E系列项目 Service ID 表.xlsx,E系列项目,20103,读取设备升级配置信息,无,,,,
+3,E系列项目 Service ID 表.xlsx,E系列项目,20201,读取HEMS配置信息（（仅mqtt能查询））,无,,,,
+4,E系列项目 Service ID 表.xlsx,E系列项目,20301,App获取设备信息,fields,string array,,serialNumber,是
+5,E系列项目 Service ID 表.xlsx,E系列项目,20308,读取时区偏移,无,,,,
+6,E系列项目 Service ID 表.xlsx,E系列项目,20309,查询设备证书状态,无,,,,
+7,E系列项目 Service ID 表.xlsx,E系列项目,20310,查询SN,无,,,,
+8,E系列项目 Service ID 表.xlsx,E系列项目,20401,获取连接信息,无,,,,
+9,E系列项目 Service ID 表.xlsx,E系列项目,20403,读取通道权限,无,,,,
+10,E系列项目 Service ID 表.xlsx,E系列项目,20404,读取设备实例名,无,,,,
+11,E系列项目 Service ID 表.xlsx,E系列项目,20407,读取蓝牙关闭广播开关状态,无,,,,
+12,E系列项目 Service ID 表.xlsx,E系列项目,20409,读取esp运行时间/调试用/0.0.1.5,无,,,,
+13,E系列项目 Service ID 表.xlsx,E系列项目,20410,查询遗嘱消息内容（调试用/内容与30103一致/0.0.1.23）,无,,,,
+14,E系列项目 Service ID 表.xlsx,E系列项目,20412,读取https地址/仅mqtt/调试用,无,,,,
+15,E系列项目 Service ID 表.xlsx,E系列项目,21001,发起mdns查询 （外部电表）,serviceType,string,0~4096,"服务类型，
+m001或m002d: _samduoem._udp.local.
+shelly pro 3em服务类型：_shelly._tcp.local. 
+HomeWizard P1 Meter服务类型：_hwenergy._tcp.local.
+EcoTracker服务类型：_everhome._tcp.local.",是
+15,E系列项目 Service ID 表.xlsx,E系列项目,21001,发起mdns查询 （外部电表）,timeoutMs,int,0~65535,ms；超时（ms）,是
+16,E系列项目 Service ID 表.xlsx,E系列项目,22000,获取设备数据及状态,无,,,,
+17,E系列项目 Service ID 表.xlsx,E系列项目,22001,获取自定义模式信息,无,,,,
+18,E系列项目 Service ID 表.xlsx,E系列项目,22005,获取错误码信息,待定,,,,
+19,E系列项目 Service ID 表.xlsx,E系列项目,22006,获取日志信息,待定,,,,
+20,E系列项目 Service ID 表.xlsx,E系列项目,22008,获取开发者模式数据,待定,,,,
+21,E系列项目 Service ID 表.xlsx,E系列项目,22009,获取INV数据信息,无,,,,
+22,E系列项目 Service ID 表.xlsx,E系列项目,22010,获取BMS数据信息,无,,,,
+23,E系列项目 Service ID 表.xlsx,E系列项目,22011,获取中控数据信息,无,,,,
+24,E系列项目 Service ID 表.xlsx,E系列项目,22015,获取电表类型信息,无,,,,
+25,E系列项目 Service ID 表.xlsx,E系列项目,22023,查询BackUp使能,无,,,,
+26,E系列项目 Service ID 表.xlsx,E系列项目,22024,查询全局工作模式,无,,,,
+27,E系列项目 Service ID 表.xlsx,E系列项目,22025,MCU查询内部电表数据,params,string,0~4096,查询电表数据的报文,是
+28,E系列项目 Service ID 表.xlsx,E系列项目,22026,MCU查询外部http电表数据,url,string,0~4096,查询电表数据的报文,是
+29,E系列项目 Service ID 表.xlsx,E系列项目,22027,查询电表实时功率,无,,,,
+30,E系列项目 Service ID 表.xlsx,E系列项目,22029,读取自发自用模式dod,无,,,,
+31,E系列项目 Service ID 表.xlsx,E系列项目,22038,获取高级模式信息（新）,无,,,,
+32,E系列项目 Service ID 表.xlsx,E系列项目,22041,获取dod和backup reserve soc配置,无,,,,
+33,E系列项目 Service ID 表.xlsx,E系列项目,22042,获取高级选项配置情况,无,,,,
+34,E系列项目 Service ID 表.xlsx,E系列项目,22044,获取LED灯配置,无,,,,
+35,E系列项目 Service ID 表.xlsx,E系列项目,22046,获取定时功率控制配置,无,,,,
+36,E系列项目 Service ID 表.xlsx,E系列项目,22050,获取主页数据及状态,无,,,,
+37,E系列项目 Service ID 表.xlsx,E系列项目,22051,获取累计量数据,无,,,,
+38,E系列项目 Service ID 表.xlsx,E系列项目,22052,获取实时数据,sampleCount,int,1 ~ 30,个；实时数据个数,是
+39,E系列项目 Service ID 表.xlsx,E系列项目,22056,获取功率限制,无,,,,
+40,E系列项目 Service ID 表.xlsx,E系列项目,22094,设置/获取JSON调试等级,level,enum（int）,0 ~ 255,0，关闭（默认）； 1，错误； 2，分配；3，详细；255，获取等级,是
+41,E系列项目 Service ID 表.xlsx,E系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,year,int,25 ~ 99,年；设置年份（最后2位）,是
+41,E系列项目 Service ID 表.xlsx,E系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,mon,int,1 ~ 12,月；设置月份,是
+41,E系列项目 Service ID 表.xlsx,E系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,day,int,1 ~ 31,日；设置日期,是
+41,E系列项目 Service ID 表.xlsx,E系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,hour,int,0 ~ 23,时；设置时,是
+41,E系列项目 Service ID 表.xlsx,E系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,min,int,0 ~ 59,分；设置分,是
+42,E系列项目 Service ID 表.xlsx,E系列项目,22099,获取设备版本信息,无,,,,
+43,E系列项目 Service ID 表.xlsx,E系列项目,22105,获取老化数据,无,,,,
+44,E系列项目 Service ID 表.xlsx,E系列项目,22107,获取老化模式配置信息,type,enum（int）,0 ~ 1,获取类型，0：连续多个；1：单个,否
+44,E系列项目 Service ID 表.xlsx,E系列项目,22107,获取老化模式配置信息,stepNo,int,1 ~ 10,工步号，最多支持10个工步,否
+45,E系列项目 Service ID 表.xlsx,E系列项目,22109,获取老化日志信息,cnt,int,0 ~ 255,日志信息条数,是
+46,E系列项目 Service ID 表.xlsx,E系列项目,22112,获取电池老化耐久信息,无,,,,
+47,E系列项目 Service ID 表.xlsx,E系列项目,22321,ATE获取采样数据（静态）,无,,,,
+48,E系列项目 Service ID 表.xlsx,E系列项目,22323,ATE读取并网功率,无,,,,
+49,E系列项目 Service ID 表.xlsx,E系列项目,22326,ATE读取离网功率,无,,,,
+50,E系列项目 Service ID 表.xlsx,E系列项目,22330,ATE模式查询,无,,,,
+51,E系列项目 Service ID 表.xlsx,E系列项目,22332,ATE获取采样数据（动态）,无,,,,
+52,E系列项目 Service ID 表.xlsx,E系列项目,22339,ATE读取电芯类型,无,,,,
+53,E系列项目 Service ID 表.xlsx,E系列项目,22341,ATE读取放电功率限制,无,,,,
+54,E系列项目 Service ID 表.xlsx,E系列项目,22355,读取电池包SN,无,,,,
+55,E系列项目 Service ID 表.xlsx,E系列项目,22357,获取调试信息（内部调试）,dev,int,0~2,0:inv 1:mppt 2:bms,是
+55,E系列项目 Service ID 表.xlsx,E系列项目,22357,获取调试信息（内部调试）,func,int,"0,1",0:查询 1:控制,否
+55,E系列项目 Service ID 表.xlsx,E系列项目,22357,获取调试信息（内部调试）,ctrl,int,控制功能,见mppt和bms can协议,否
+55,E系列项目 Service ID 表.xlsx,E系列项目,22357,获取调试信息（内部调试）,param1,int,控制功能参数1,见mppt和bms can协议,否
+55,E系列项目 Service ID 表.xlsx,E系列项目,22357,获取调试信息（内部调试）,param2,int,控制功能参数2,见mppt和bms can协议,否
+56,E系列项目 Service ID 表.xlsx,E系列项目,22600,获取设备数据（OpenAPI使用）,无,,,,
+57,E系列项目 Service ID 表.xlsx,E系列项目,22801,读取HEMS配置信息,无,,,,
+58,E系列项目 Service ID 表.xlsx,E系列项目,22811,获取高级模式信息,无,,,,
+59,E系列项目 Service ID 表.xlsx,E系列项目,22813,获取高级选项配置情况,无,,,,
+60,E系列项目 Service ID 表.xlsx,E系列项目,22814,查询全局工作模式,无,,,,
+61,E系列项目 Service ID 表.xlsx,E系列项目,22816,获取backup reserve soc配置,无,,,,
+62,E系列项目 Service ID 表.xlsx,E系列项目,22818,获取设备在线情况,无,,,,
+63,E系列项目 Service ID 表.xlsx,E系列项目,22900,获取INV NS保护/RC重连参数,无,,,,
+64,E系列项目 Service ID 表.xlsx,E系列项目,22901,获取INV 认证参数,无,,,,
+65,HEMS Service ID 表.xlsx,HEMS,23001,读取HEMS配置信息（仅mqtt能查询）,无,,,,
+66,HEMS Service ID 表.xlsx,HEMS,23003,查询家庭成员信息,无,,,,
+67,HEMS Service ID 表.xlsx,HEMS,23006,发起mdns查询（外部电表）,serviceType,string,0~63,"服务类型，
+m001或m002d: _samduoem._udp.local.
+shelly pro 3em服务类型：_shelly._tcp.local.
+HomeWizard P1 Meter服务类型：_hwenergy._tcp.local.
+EcoTracker服务类型：_everhome._tcp.local.
+stromleser.one服务类型：_stromleser._tcp.local.",是
+67,HEMS Service ID 表.xlsx,HEMS,23006,发起mdns查询（外部电表）,timeoutMs,int,0~65535,ms；超时（ms）,是
+68,HEMS Service ID 表.xlsx,HEMS,23008,查询电表,无,,,,
+69,HEMS Service ID 表.xlsx,HEMS,23011,获取高级选项配置情况,无,,,,
+70,HEMS Service ID 表.xlsx,HEMS,23013,查询全局工作模式,无,,,,
+71,HEMS Service ID 表.xlsx,HEMS,23015,获取高级模式信息,无,,,,
+72,HEMS Service ID 表.xlsx,HEMS,23016,获取设备在线情况,无,,,,
+73,HEMS Service ID 表.xlsx,HEMS,23018,获取backup reserve soc配置,无,,,,
+74,HEMS Service ID 表.xlsx,HEMS,23021,获取当前主机实例名及顺位,无,,,,
+75,HEMS Service ID 表.xlsx,HEMS,23023,获取补电速率,无,,,,
+76,HEMS Service ID 表.xlsx,HEMS,23024,获取所有设备信息,无,,,,
+77,HEMS Service ID 表.xlsx,HEMS,23032,获取功率限制,无,,,,
+78,HEMS Service ID 表.xlsx,HEMS,23033,读取AI策略,无,,,,
+79,HEMS Service ID 表.xlsx,HEMS,23034,获取电价策略（未实现）,无,,,,
+80,HEMS Service ID 表.xlsx,HEMS,23038,查询馈网开关,无,,,,
+81,HEMS Service ID 表.xlsx,HEMS,23040,获取backup reserve soc和dod配置,无,,,,
+82,HEMS Service ID 表.xlsx,HEMS,23101,读取powermesh调度,无,,,,
+83,HEMS Service ID 表.xlsx,HEMS,23105,获取电表数据（自家电表）,msgIdx,int,0 ~ 65535,消息索引,是
+84,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22000,获取电表数据及状态,无,,,,
+85,M001&M002&M003&M004 Service ID 表.xlsx,M002项目,22000,获取电表数据及状态,无,,,,
+86,M001&M002&M003&M004 Service ID 表.xlsx,M003项目,22000,获取电表数据及状态,无,,,,
+87,M001&M002&M003&M004 Service ID 表.xlsx,M004项目,22000,获取电表数据及状态,无,,,,
+88,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22001,获取从机信息,无,,,,
+89,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22002,获取P1接口及电表编号,无,,,,
+90,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22019,获取电表mdns属性,无,,,,
+91,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22021,获取P1电表原始数据,index,int,0~4096,P1原始数据返回索引,
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,msgIdx,int,0 ~ 65535,消息索引,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,chrgType,enum（int）,0~1,补电类型，0：单相补电；1：三相补电,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,seqCheck,enum（int）,0~1,是否线序检测，0：否；1：是,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devSoc,int,0~1000,设备soc,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devPower,int,-5000 ~ 5000,W；设备当前功率,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devPhase,enum（int）,0~4,设备当前相位，0: 未知相位；1：A相；2：B相；3：C相；4：ABC合相；,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devMode,enum（int）,0~3,工作模式 0：自发自用模式；1：充电模式；2：放电模式；3：AI模式,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devType,enum（int）,0~3,设备类型,是
+92,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22025,获取电表数据,devBleName,string,0~255,设备蓝牙名,是
+93,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22027,读取光伏探头使能状态,无,,,,
+94,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22028,subg表头配对，解绑，查询,action,int,0~2,"0:查询情况
+1:开始配对表头
+2:解绑表头",是
+95,M001&M002&M003&M004 Service ID 表.xlsx,M001项目,22031,表头OTA进度查询,无,,,,
+96,P系列项目 Service ID 表.xlsx,P系列项目,20101,平台获取版本信息,无,,,,
+97,P系列项目 Service ID 表.xlsx,P系列项目,20103,读取设备升级配置信息,无,,,,
+98,P系列项目 Service ID 表.xlsx,P系列项目,20201,读取HEMS配置信息（（仅mqtt能查询））,无,,,,
+99,P系列项目 Service ID 表.xlsx,P系列项目,20301,App获取设备信息,fields,string array,,serialNumber,是
+100,P系列项目 Service ID 表.xlsx,P系列项目,20308,读取时区偏移,无,,,,
+101,P系列项目 Service ID 表.xlsx,P系列项目,20309,查询设备证书状态,无,,,,
+102,P系列项目 Service ID 表.xlsx,P系列项目,20310,查询SN,无,,,,
+103,P系列项目 Service ID 表.xlsx,P系列项目,20401,获取连接信息,无,,,,
+104,P系列项目 Service ID 表.xlsx,P系列项目,20403,读取通道权限,无,,,,
+105,P系列项目 Service ID 表.xlsx,P系列项目,20404,读取设备实例名,无,,,,
+106,P系列项目 Service ID 表.xlsx,P系列项目,20407,读取蓝牙关闭广播开关状态,无,,,,
+107,P系列项目 Service ID 表.xlsx,P系列项目,21001,发起mdns查询 （外部电表）,serviceType,string,0~4096,"服务类型，
+m001或m002d: _samduoem._udp.local.
+shelly pro 3em服务类型：_shelly._tcp.local. 
+HomeWizard P1 Meter服务类型：_hwenergy._tcp.local.
+EcoTracker服务类型：_everhome._tcp.local.",是
+107,P系列项目 Service ID 表.xlsx,P系列项目,21001,发起mdns查询 （外部电表）,timeoutMs,int,0~65535,ms；超时（ms）,是
+108,P系列项目 Service ID 表.xlsx,P系列项目,22000,获取设备数据及状态,无,,,,
+109,P系列项目 Service ID 表.xlsx,P系列项目,22001,获取自定义模式信息,无,,,,
+110,P系列项目 Service ID 表.xlsx,P系列项目,22005,获取错误码信息,待定,,,,
+111,P系列项目 Service ID 表.xlsx,P系列项目,22006,获取日志信息,待定,,,,
+112,P系列项目 Service ID 表.xlsx,P系列项目,22008,获取开发者模式数据,待定,,,,
+113,P系列项目 Service ID 表.xlsx,P系列项目,22009,获取INV数据信息,无,,,,
+114,P系列项目 Service ID 表.xlsx,P系列项目,22010,获取BMS数据信息,无,,,,
+115,P系列项目 Service ID 表.xlsx,P系列项目,22011,获取中控数据信息,无,,,,
+116,P系列项目 Service ID 表.xlsx,P系列项目,22015,获取电表类型信息,无,,,,
+117,P系列项目 Service ID 表.xlsx,P系列项目,22023,查询BackUp使能,无,,,,
+118,P系列项目 Service ID 表.xlsx,P系列项目,22024,查询全局工作模式,无,,,,
+119,P系列项目 Service ID 表.xlsx,P系列项目,22025,MCU查询内部电表数据,params,string,0~4096,查询电表数据的报文,是
+120,P系列项目 Service ID 表.xlsx,P系列项目,22026,MCU查询外部http电表数据,url,string,0~4096,查询电表数据的报文,是
+121,P系列项目 Service ID 表.xlsx,P系列项目,22027,查询电表实时功率,无,,,,
+122,P系列项目 Service ID 表.xlsx,P系列项目,22029,读取自发自用模式dod,无,,,,
+123,P系列项目 Service ID 表.xlsx,P系列项目,22050,获取主页数据及状态,无,,,,
+124,P系列项目 Service ID 表.xlsx,P系列项目,22051,获取累计量数据,无,,,,
+125,P系列项目 Service ID 表.xlsx,P系列项目,22052,获取实时数据,sampleCount,int,1 ~ 30,个；实时数据个数,是
+126,P系列项目 Service ID 表.xlsx,P系列项目,22056,获取功率限制,无,,,,
+127,P系列项目 Service ID 表.xlsx,P系列项目,22080,获取电池包Pack数据,无,,,,
+128,P系列项目 Service ID 表.xlsx,P系列项目,22081,获取PV数据,无,,,,
+129,P系列项目 Service ID 表.xlsx,P系列项目,22083,DC调试查询指令,无,,,,
+130,P系列项目 Service ID 表.xlsx,P系列项目,22094,设置/获取JSON调试等级,level,enum（int）,0 ~ 255,0，关闭（默认）； 1，错误； 2，分配；3，详细；255，获取等级,是
+131,P系列项目 Service ID 表.xlsx,P系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,year,int,25 ~ 99,年；设置年份（最后2位）,否
+131,P系列项目 Service ID 表.xlsx,P系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,mon,int,1 ~ 12,月；设置月份,否
+131,P系列项目 Service ID 表.xlsx,P系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,day,int,1 ~ 31,日；设置日期,否
+131,P系列项目 Service ID 表.xlsx,P系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,hour,int,0 ~ 23,时；设置时,否
+131,P系列项目 Service ID 表.xlsx,P系列项目,22098,设置/获取系统时间 （省略输入参数即为获取系统时间）,min,int,0 ~ 59,分；设置分,否
+132,P系列项目 Service ID 表.xlsx,P系列项目,22099,获取设备版本信息,无,,,,
+133,P系列项目 Service ID 表.xlsx,P系列项目,22105,获取老化数据,无,,,,
+134,P系列项目 Service ID 表.xlsx,P系列项目,22107,获取老化模式配置信息,type,enum（int）,0 ~ 1,获取类型，0：连续多个；1：单个,否
+134,P系列项目 Service ID 表.xlsx,P系列项目,22107,获取老化模式配置信息,stepNo,int,1 ~ 10,工步号，最多支持10个工步,否
+135,P系列项目 Service ID 表.xlsx,P系列项目,22109,获取老化日志信息,cnt,int,0 ~ 255,日志信息条数,是
+136,P系列项目 Service ID 表.xlsx,P系列项目,22321,ATE获取采样数据（静态）,无,,,,
+137,P系列项目 Service ID 表.xlsx,P系列项目,22323,ATE读取并网功率,无,,,,
+138,P系列项目 Service ID 表.xlsx,P系列项目,22326,ATE读取离网功率,无,,,,
+139,P系列项目 Service ID 表.xlsx,P系列项目,22330,ATE模式查询,无,,,,
+140,P系列项目 Service ID 表.xlsx,P系列项目,22332,ATE获取采样数据（动态）,无,,,,
+141,P系列项目 Service ID 表.xlsx,P系列项目,22339,ATE读取电芯类型,无,,,,
+142,P系列项目 Service ID 表.xlsx,P系列项目,22341,ATE读取放电功率限制,无,,,,
+143,P系列项目 Service ID 表.xlsx,P系列项目,22350,ATE获取PV数据,无,,,,
+144,P系列项目 Service ID 表.xlsx,P系列项目,22351,ATE获取BMS数据,无,,,,
+145,P系列项目 Service ID 表.xlsx,P系列项目,22352,读取电池包SN,bmsNo,int,0~6,电池包序号（1~6），0：所有上线的电池包,是
+146,P系列项目 Service ID 表.xlsx,P系列项目,22353,读取电池包老化数据,bmsNo,int,0~6,电池包序号（1~6），0：所有上线的电池包,是
+147,P系列项目 Service ID 表.xlsx,P系列项目,22357,获取调试信息（内部调试）,dev,int,0~2,0:inv 1:mppt 2:bms,是
+147,P系列项目 Service ID 表.xlsx,P系列项目,22357,获取调试信息（内部调试）,func,int,"0,1",0:查询 1:控制,否
+147,P系列项目 Service ID 表.xlsx,P系列项目,22357,获取调试信息（内部调试）,ctrl,int,控制功能,见mppt和bms can协议,否
+147,P系列项目 Service ID 表.xlsx,P系列项目,22357,获取调试信息（内部调试）,param1,int,控制功能参数1,见mppt和bms can协议,否
+147,P系列项目 Service ID 表.xlsx,P系列项目,22357,获取调试信息（内部调试）,param2,int,控制功能参数2,见mppt和bms can协议,否
+148,P系列项目 Service ID 表.xlsx,P系列项目,22600,获取设备数据（OpenAPI使用）,无,,,,
+149,P系列项目 Service ID 表.xlsx,P系列项目,22900,获取INV NS保护/RC重连参数,无,,,,
+150,P系列项目 Service ID 表.xlsx,P系列项目,22901,获取INV 认证参数,无,,,,

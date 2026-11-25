@@ -388,6 +388,45 @@ export interface UiAuthStateForm {
   description?: string
 }
 
+export interface UiDeviceProfile {
+  id: number
+  name: string
+  platform: 'android' | 'ios'
+  device_type: 'emulator' | 'real'
+  avd_name: string
+  android_version: string
+  device_name: string
+  udid?: string | null
+  cpu_core: number
+  ram_size_mb: number
+  screen_resolution: string
+  headless: boolean
+  snapshot_enabled: boolean
+  status: 'stopped' | 'starting' | 'running' | 'stopping' | 'error'
+  description?: string
+  project: number
+  creator: number | null
+  creator_name?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface UiDeviceProfileForm {
+  name: string
+  avd_name: string
+  android_version: string
+  device_name: string
+  cpu_core?: number
+  ram_size_mb?: number
+  screen_resolution?: string
+  headless?: boolean
+  snapshot_enabled?: boolean
+  status?: UiDeviceProfile['status']
+  description?: string
+  /** 所属项目（创建时必传） */
+  project?: number
+}
+
 /** API 分页响应 */
 export interface PaginatedResponse<T> {
   count: number

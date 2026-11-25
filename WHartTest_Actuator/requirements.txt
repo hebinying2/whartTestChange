@@ -10,3 +10,6 @@ ddddocr>=1.4.11  # 验证码智能识别 OCR
 
 # GUI 模式依赖 (设置 use_gui = true 时需要)
 customtkinter>=5.2.2
+
+# APP 自动化可选依赖（Android 模拟器 / Appium）
+# Appium-Python-Client>=4.0.0

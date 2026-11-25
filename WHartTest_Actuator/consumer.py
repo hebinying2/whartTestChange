@@ -25,6 +25,8 @@ from executor import (
 from data_processor import reset_data_processor, DataProcessor
 from runtime_env import is_trusted_upload_path, resolve_runtime_file_path, trusted_upload_roots
 from frame_stream import FrameStreamer, stream_enabled
+from device_manager import DeviceManager
+from appium_executor import AppiumExecutor
 
 logger = logging.getLogger('actuator')
 
@@ -87,6 +89,9 @@ class TaskConsumer:
         self._current_user: Optional[str] = None
         # 执行画面帧推流状态（仅单任务执行使用）
         self._exec_frame_streamer: Optional[FrameStreamer] = None
+        # APP 设备池（第一版仅 Android 模拟器）
+        self.device_manager = DeviceManager()
+        self.appium_executor = AppiumExecutor()
         self._exec_frame_case_id: int = 0
         self._exec_frame_page_step_id: int = 0
         # 观看模式：无头开关关闭（headless=False）时开启画布直播；
@@ -397,6 +402,9 @@ class TaskConsumer:
             UiSocketEnum.TEST_CASE_BATCH: self.execute_batch,
             UiSocketEnum.STOP_EXECUTION: self.stop_execution,
             UiSocketEnum.SET_ACTUATOR_CONFIG: self.apply_config_update,
+            UiSocketEnum.APP_DEVICE_START: self.start_app_device,
+            UiSocketEnum.APP_DEVICE_STOP: self.stop_app_device,
+            UiSocketEnum.APP_DEVICE_STATUS: self.app_device_status,
         }
         
         handler = handlers.get(task.func_name)
@@ -490,6 +498,86 @@ class TaskConsumer:
             await self.ws_client._send_actuator_info()
         except Exception as e:
             logger.warning(f"配置更新后重新上报执行器信息失败: {e}")
+
+    async def start_app_device(self, args: dict):
+        """启动 Android 模拟器（APP 设备控制指令）"""
+        action = 'start'
+        try:
+            avd_name = args.get('avd_name') or args.get('device_name')
+            if not avd_name:
+                raise ValueError('缺少 avd_name')
+            result = await asyncio.to_thread(
+                self.device_manager.start_device,
+                avd_name=avd_name,
+                headless=bool(args.get('headless', True)),
+                snapshot_enabled=bool(args.get('snapshot_enabled', True)),
+            )
+            await self._send_app_device_result(action, {
+                'avd_name': avd_name,
+                **result,
+            }, user=self._current_user)
+        except Exception as exc:
+            logger.warning('启动 APP 设备失败: %r', exc)
+            await self._send_app_device_result(action, {
+                'avd_name': args.get('avd_name'),
+                'status': 'error',
+                'message': str(exc),
+            }, user=self._current_user)
+
+    async def stop_app_device(self, args: dict):
+        """停止 Android 模拟器（APP 设备控制指令）"""
+        action = 'stop'
+        avd_name = args.get('avd_name')
+        try:
+            result = await asyncio.to_thread(
+                self.device_manager.stop_device,
+                avd_name=avd_name,
+                udid=args.get('udid'),
+            )
+            await self._send_app_device_result(action, {
+                'avd_name': avd_name,
+                **result,
+            }, user=self._current_user)
+        except Exception as exc:
+            logger.warning('停止 APP 设备失败: %r', exc)
+            await self._send_app_device_result(action, {
+                'avd_name': avd_name,
+                'status': 'error',
+                'message': str(exc),
+            }, user=self._current_user)
+
+    async def app_device_status(self, args: dict):
+        """查询模拟器状态（APP 设备控制指令）"""
+        action = 'status'
+        avd_name = args.get('avd_name') or args.get('device_name')
+        try:
+            result = await asyncio.to_thread(
+                self.device_manager.status, avd_name
+            ) if avd_name else await asyncio.to_thread(
+                self.device_manager.has_toolchain
+            )
+            await self._send_app_device_result(action, {
+                'avd_name': avd_name,
+                **result,
+            }, user=self._current_user)
+        except Exception as exc:
+            logger.warning('查询 APP 设备状态失败: %r', exc)
+            await self._send_app_device_result(action, {
+                'avd_name': avd_name,
+                'status': 'error',
+                'message': str(exc),
+            }, user=self._current_user)
+
+    async def _send_app_device_result(self, action: str, result: dict, user: Optional[str] = None):
+        """回传 APP 设备操作结果。"""
+        await self.ws_client.send_result(
+            UiSocketEnum.APP_DEVICE_RESULT,
+            {
+                'action': action,
+                **(result if isinstance(result, dict) else {'data': result}),
+            },
+            user=user,
+        )
 
     def _persist_config(self, updates: dict) -> None:
         """把配置更新写回 config.toml（保留 server/actuator 等未编辑内容）"""

@@ -236,6 +236,11 @@ const routes: Array<RouteRecordRaw> = [ // 声明路由表数组，类型约束�
         component: FileManagementView,
       },
       {
+        path: 'device-command', // 工具：设备指令查询。
+        name: 'DeviceCommandQuery',
+        component: () => import('@/features/device-tools/views/DeviceCommandQueryView.vue'),
+      },
+      {
         path: 'operation-logs', // 定义操作日志路径。
         name: 'OperationLogs', // 定义操作日志路由名称。
         component: () => import('../views/OperationLogView.vue'), // 动态导入操作日志页面。

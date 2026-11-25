@@ -385,6 +385,7 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 UiSocketEnum.CASE_RESULT: self.handle_case_result,
                 UiSocketEnum.EXEC_FRAME: self.handle_exec_frame,
                 UiSocketEnum.SET_ACTUATOR_INFO: self.handle_set_actuator_info,
+                UiSocketEnum.APP_DEVICE_RESULT: self.handle_app_device_result,
             }
         else:
             # 前端发送执行请求 -> 转发给执行器
@@ -403,10 +404,14 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 UiSocketEnum.RECORDER_SWITCH_ACCOUNT: self.handle_recorder_switch_account,
                 UiSocketEnum.RECORDER_STOP: self.handle_recorder_stop,
                 UiSocketEnum.RECORDER_PICK_SELECT: self.handle_recorder_pick_select,
+                UiSocketEnum.APP_DEVICE_START: self.handle_app_device_command,
+                UiSocketEnum.APP_DEVICE_STOP: self.handle_app_device_command,
+                UiSocketEnum.APP_DEVICE_STATUS: self.handle_app_device_command,
             }
         
         handler = handler_map.get(func_name)
         if handler:
+            self._current_func_name = func_name
             await handler(func_args, socket_data.user)
         else:
             logger.warning(f"未知的func_name: {func_name}")
@@ -415,6 +420,78 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 msg=self._localize(f"未知的操作: {func_name}")
             ))
     
+
+    async def handle_app_device_command(self, args: dict, user: str):
+        """前端 APP 设备控制指令 -> 转发给执行器。"""
+        func_name = getattr(self, '_current_func_name', None)
+        actuator = SocketUserManager.get_actuator()
+        if not actuator:
+            await self.send_json(SocketDataModel(
+                code=ResponseCode.ERROR,
+                msg=self._localize("当前没有可用执行器"),
+                data=QueueModel(func_name=UiSocketEnum.APP_DEVICE_RESULT, func_args={
+                    'action': args.get('action') if isinstance(args, dict) else None,
+                    'status': 'error',
+                    'message': '当前没有可用执行器',
+                })
+            ))
+            return
+        await actuator.send_json(SocketDataModel(
+            code=ResponseCode.SUCCESS,
+            msg='app_device_command',
+            user=self.user_id,
+            is_notice=NoticeType.ACTUATOR,
+            data=QueueModel(func_name=func_name, func_args=args or {}),
+        ))
+
+    async def handle_app_device_result(self, args: dict, user: str):
+        """执行器 APP 设备操作结果 -> 持久化设备状态 + 广播给所有前端用户。
+
+        注意：此处 self 是执行器连接，必须通过 channel_layer 组广播，
+        不能用 self.send_json（那会把结果回显给执行器自身）。
+        """
+        args = args if isinstance(args, dict) else {}
+        logger.info(f"收到 APP 设备操作结果: {args}")
+
+        # 持久化设备状态（前端 refresh 从数据库拉取，不落库则状态会被旧值覆盖）
+        avd_name = args.get('avd_name')
+        action = args.get('action')
+        status = args.get('status')
+        if avd_name:
+            profile_status = self._map_device_profile_status(action, status)
+            if profile_status:
+                await self._update_device_profile_status(avd_name, profile_status)
+
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                'type': 'broadcast_result',
+                'data': {
+                    'func_name': UiSocketEnum.APP_DEVICE_RESULT,
+                    'args': args,
+                    'user': user,
+                }
+            }
+        )
+
+    @staticmethod
+    def _map_device_profile_status(action: Optional[str], status: Optional[str]) -> Optional[str]:
+        """将执行器操作结果映射为 UiDeviceProfile.status。"""
+        if status == 'error':
+            return 'error'
+        if status in ('running', 'success', 'stopped'):
+            if action == 'start':
+                return 'running'
+            if action == 'stop':
+                return 'stopped'
+        return None
+
+    @sync_to_async
+    def _update_device_profile_status(self, avd_name: str, profile_status: str):
+        from .models import UiDeviceProfile
+        updated = UiDeviceProfile.objects.filter(avd_name=avd_name).update(status=profile_status)
+        logger.info(f"APP 设备状态落库: avd={avd_name} -> {profile_status} (匹配 {updated} 条)")
+        return updated
 
     # ------------------------------------------------------------------
     # 录制器（Playwright 无头浏览器录制：帧推流 / 输入转发 / 动作中继）

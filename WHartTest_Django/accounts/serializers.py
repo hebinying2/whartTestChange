@@ -51,6 +51,8 @@ PERMISSION_NAME_TRANSLATIONS = {
     "Can change 项目成员": "修改项目成员",
     "Can delete 项目成员": "删除项目成员",
     "Can view 项目成员": "查看项目成员",
+    # 工具菜单权限
+    "Can view device command": "查看设备指令",
     # 用例管理权限
     "Can add 测试用例": "添加测试用例",
     "Can change 测试用例": "修改测试用例",
@@ -467,6 +469,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
             "testcases": "测试管理",
             "testcase_templates": "测试管理",
             "knowledge": "知识库管理",
+            "device_tools": "工具",
             # 系统管理
             "auth": "系统管理",
             "accounts": "系统管理",
@@ -516,6 +519,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
             "testcases": "Test Management",
             "testcase_templates": "Test Management",
             "knowledge": "Knowledge Base",
+            "device_tools": "Tools",
             "auth": "System Settings",
             "accounts": "System Settings",
             "api_keys": "System Settings",
@@ -568,6 +572,12 @@ class ContentTypeSerializer(serializers.ModelSerializer):
         if menu_category == "任务中心":
             if app_label in ["task_center", "django_celery_beat"]:
                 return "任务调度"
+            return None
+
+        # 条件：一级菜单是工具；动作：按功能页归类；结果：权限树与前端工具菜单一致。
+        if menu_category == "工具":
+            if app_label == "device_tools":
+                return "设备指令查询"
             return None
 
         # 非系统管理菜单不需要二级分组，返回 None 让前端按一级菜单展示。
@@ -629,6 +639,11 @@ class ContentTypeSerializer(serializers.ModelSerializer):
         if menu_category == "Task Center":
             if app_label in ["task_center", "django_celery_beat"]:
                 return "Task Scheduling"
+            return None
+
+        if menu_category == "Tools":
+            if app_label == "device_tools":
+                return "Device Command"
             return None
 
         if menu_category != "System Settings":
@@ -715,6 +730,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
             "消息管理": 27,
             "Skills管理": 28,
             "任务调度": 29,
+            "设备指令查询": 30,
         }
         return subcategory_sort.get(subcategory, 99)
 
@@ -731,9 +747,10 @@ class ContentTypeSerializer(serializers.ModelSerializer):
             "UI自动化": 4,
             "任务中心": 5,
             "测试管理": 6,
-            "LLM对话": 7,
-            "知识库管理": 8,
-            "系统管理": 9,
+            "工具": 7,
+            "LLM对话": 8,
+            "知识库管理": 9,
+            "系统管理": 10,
         }
         return sort_order.get(app_label_cn, 99)
 
@@ -794,6 +811,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
                 "ui_automation.uipagestepsdetailed": "UI页面步骤明细",
                 "ui_automation.uipublicdata": "UI公共数据",
                 "ui_automation.uitestcase": "UI测试用例",
+                "device_tools.devicecommand": "设备指令",
             }
 
             # 优先使用 应用+模型 精确映射，避免跨应用同名模型翻译冲突。
@@ -905,6 +923,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
                 "ui_automation.uipagestepsdetailed": "UI页面步骤明细",
                 "ui_automation.uipublicdata": "UI公共数据",
                 "ui_automation.uitestcase": "UI测试用例",
+                "device_tools.devicecommand": "设备指令",
             }
 
             app_model_key = f"{app_label}.{model_name}"
@@ -1047,6 +1066,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
             "ui_automation.uitestcase": "UI Test Case",
             "weixin_integration.weixinbotconfig": "WeChat Bot Config",
             "weixin_integration.weixinloginsession": "WeChat Login Session",
+            "device_tools.devicecommand": "Device Command",
         }
 
         app_model_key = f"{app_label}.{model_name}"

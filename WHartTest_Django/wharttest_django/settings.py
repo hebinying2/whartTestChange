@@ -140,6 +140,7 @@ INSTALLED_APPS = [
     'api_sync',  # API 接口同步应用。
     'operation_logs',  # 用户操作日志。
     'file_management',  # 统一文件管理/附件中心。
+    'device_tools',  # 工具菜单：设备指令查询。
 ]
 
 # ASGI 配置（用于 Channels WebSocket）
@@ -743,6 +744,29 @@ DOCX_EDITOR_BASE_URL = os.environ.get("DOCX_EDITOR_BASE_URL", "").rstrip("/")
 DOCX_EDITOR_PUBLIC_BASE_URL = os.environ.get("DOCX_EDITOR_PUBLIC_BASE_URL", "").rstrip("/")
 # 主项目调用 docx-editor 集成接口时使用的服务密钥。
 DOCX_EDITOR_SERVICE_KEY = os.environ.get("DOCX_EDITOR_SERVICE_KEY", "").strip()
+
+# 设备指令查询：设备接入网关地址。
+# 由后端白名单配置并代理转发，前端只能从允许列表中选择，避免代理被当作任意地址跳板（SSRF）。
+DEVICE_ACCESS_HOST = os.environ.get(
+    "DEVICE_ACCESS_HOST", "https://device-access.test.samduo.com"
+).rstrip("/")
+DEVICE_ACCESS_HOSTS = [
+    item.strip().rstrip("/")
+    for item in os.environ.get(
+        "DEVICE_ACCESS_HOSTS",
+        "https://device-access.test.samduo.com,https://device-access.dev.samduo.com",
+    ).split(",")
+    if item.strip()
+]
+if DEVICE_ACCESS_HOST not in DEVICE_ACCESS_HOSTS:
+    DEVICE_ACCESS_HOSTS.insert(0, DEVICE_ACCESS_HOST)
+
+# 设备指令查询：设备编码候选数据源。
+# 未配置 table/column 时前端允许手工输入；配置后自动从指定表/字段捞取设备编码。
+DEVICE_CODE_DB_ALIAS = os.environ.get("DEVICE_CODE_DB_ALIAS", "default")
+DEVICE_CODE_DB_TABLE = os.environ.get("DEVICE_CODE_DB_TABLE", "").strip()
+DEVICE_CODE_DB_COLUMN = os.environ.get("DEVICE_CODE_DB_COLUMN", "").strip()
+DEVICE_CODE_DB_LIMIT = int(os.environ.get("DEVICE_CODE_DB_LIMIT", "200"))
 
 # Skill 沙箱访问 backend 的地址：runner 模式下 skill 在独立容器执行，
 # 容器内的 127.0.0.1 是沙箱自身，必须用服务网络内可达的地址。

@@ -13,6 +13,7 @@ from websockets.client import WebSocketClientProtocol
 
 from models import SocketDataModel, QueueModel, ResponseCode, NoticeType, UiSocketEnum
 from runtime_env import is_running_in_container
+from app_capabilities import detect_app_capability
 
 logger = logging.getLogger('actuator')
 
@@ -217,6 +218,8 @@ class WebSocketClient:
             'viewport_height': getattr(self.config, 'viewport_height', 720) if self.config else 720,
             # 容器部署标识（供平台展示；观看模式经画布帧流，容器同样可用）
             'in_container': is_running_in_container(),
+            # APP 自动化能力（第一版仅 Android 模拟器）
+            'app_capability': detect_app_capability(),
         }
         
         await self.send(SocketDataModel(

@@ -25,7 +25,7 @@ from file_management.services import maybe_cleanup_unreferenced_files, sync_file
 from .models import (
     UiModule, UiPage, UiElement, UiPageSteps, UiPageStepsDetailed,
     UiTestCase, UiCaseStepsDetailed, UiExecutionRecord, UiPublicData, UiEnvironmentConfig,
-    UiBatchExecutionRecord, UiAuthState
+    UiBatchExecutionRecord, UiAuthState, UiDeviceProfile
 )
 from file_management.models import FileReference
 from .serializers import (
@@ -33,7 +33,7 @@ from .serializers import (
     UiElementSerializer, UiPageStepsSerializer, UiPageStepsListSerializer, UiPageStepsDetailSerializer,
     UiPageStepsDetailedSerializer, UiTestCaseSerializer, UiTestCaseListSerializer, UiTestCaseDetailSerializer,
     UiCaseStepsDetailedSerializer, UiExecutionRecordSerializer, UiExecutionRecordListSerializer,
-    UiPublicDataSerializer, UiEnvironmentConfigSerializer, UiAuthStateSerializer,
+    UiPublicDataSerializer, UiEnvironmentConfigSerializer, UiAuthStateSerializer, UiDeviceProfileSerializer,
     UiTestCaseExecuteSerializer, UiPageStepsExecuteSerializer, UiBatchExecutionRecordSerializer,
     UiBatchExecutionRecordDetailSerializer
 )
@@ -984,6 +984,20 @@ class UiEnvironmentConfigViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['project', 'is_default']
     search_fields = ['name', 'base_url']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['project', 'name']
+
+    def perform_create(self, serializer):
+        serializer.save(creator=self.request.user)
+
+
+class UiDeviceProfileViewSet(viewsets.ModelViewSet):
+    """APP 自动化设备配置管理视图"""
+    queryset = UiDeviceProfile.objects.select_related('project', 'creator')
+    serializer_class = UiDeviceProfileSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['project', 'platform', 'device_type', 'status']
+    search_fields = ['name', 'avd_name', 'device_name']
     ordering_fields = ['name', 'created_at']
     ordering = ['project', 'name']
 
