@@ -120,6 +120,11 @@ class WebSocketClient:
                 'ping_interval': 30,
                 'ping_timeout': 10,
                 'close_timeout': 10,
+                # 显式禁用代理：本机直连后端，绝不应走系统代理
+                # （websockets>=14 默认信任环境/系统代理，公司机器开启抓包
+                # 代理且未绕过 localhost 时会报 "did not receive a valid
+                # HTTP response"）
+                'proxy': None,
             }
             if origin:
                 connect_kwargs['origin'] = origin

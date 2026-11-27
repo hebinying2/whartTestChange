@@ -631,7 +631,7 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
     queryset = UiTestCase.objects.select_related('project', 'module', 'creator')
     serializer_class = UiTestCaseSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['project', 'module', 'level', 'status']
+    filterset_fields = ['project', 'module', 'level', 'status', 'case_type']
     search_fields = ['name']
     ordering_fields = ['name', 'level', 'created_at']
     ordering = ['-created_at']
@@ -664,6 +664,39 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='app-execute-data')
+    def app_execute_data(self, request, pk=None):
+        """获取 APP 用例执行数据（APP 配置 + 平铺步骤 + 绑定设备信息）"""
+        instance = self.get_object()
+        if instance.case_type != 'app':
+            return Response(
+                {'detail': '该用例不是 APP 用例'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        device = None
+        dp = instance.device_profile
+        if dp:
+            device = {
+                'id': dp.id,
+                'name': dp.name,
+                'platform': dp.platform,
+                'device_type': dp.device_type,
+                'avd_name': dp.avd_name,
+                'udid': dp.udid,
+                'headless': dp.headless,
+            }
+        return Response({
+            'id': instance.id,
+            'name': instance.name,
+            'project': instance.project_id,
+            'case_type': instance.case_type,
+            'app_package': instance.app_package,
+            'app_activity': instance.app_activity,
+            'app_path': instance.app_path,
+            'app_steps': instance.app_steps or [],
+            'device': device,
+        })
 
     @action(detail=True, methods=['post'], url_path='copy')
     def copy(self, request, pk=None):
@@ -1035,8 +1068,8 @@ class ActuatorViewSet(viewsets.ViewSet):
     permission_classes = []  # 公开访问，不需要特殊权限
 
     def get_permissions(self):
-        """config 为写操作，需要登录；其余保持公开"""
-        if self.action == 'config':
+        """config/disconnect 为写操作，需要登录；其余保持公开"""
+        if self.action in ('config', 'disconnect'):
             return [IsAuthenticated()]
         return []
 
@@ -1053,6 +1086,8 @@ class ActuatorViewSet(viewsets.ViewSet):
             raw = SocketUserManager.get_actuator_info(cap['id']) or {}
             item = {
                 'id': cap['id'],
+                # 半开连接标记（60 秒无任何消息）：前端展示失活状态并可手动断开
+                'is_stale': SocketUserManager.is_actuator_stale(cap['id']),
                 'name': cap.get('name') or cap['id'],
                 'ip': raw.get('ip', 'unknown'),
                 'type': raw.get('type', 'web_ui'),
@@ -1095,6 +1130,44 @@ class ActuatorViewSet(viewsets.ViewSet):
                 'count': len(actuators),
                 'items': actuators
             }
+        })
+
+    @action(detail=False, methods=['post'])
+    def disconnect(self, request):
+        """手动断开执行器连接（用于清理僵尸/半开连接）。
+
+        断开后执行器进程会自动重连（如果进程还活着）；连接对象从管理器
+        移除并释放其占用的 slot lease。
+        """
+        import logging
+
+        from asgiref.sync import async_to_sync
+
+        from .actuator_registry import clear_actuator_leases
+        from .consumers import SocketUserManager
+
+        logger = logging.getLogger('ui_automation')
+        actuator_id = request.data.get('actuator_id')
+        if not actuator_id:
+            return Response({'error': 'actuator_id 必填'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        consumer = SocketUserManager.get_actuator_by_id(str(actuator_id))
+        if consumer is None:
+            return Response({'error': f'执行器 {actuator_id} 不在线'},
+                            status=status.HTTP_404_NOT_FOUND)
+        try:
+            # 触发 channels disconnect 流程：group_discard + 注销 + lease 清理
+            async_to_sync(consumer.close)(code=1000)
+        except Exception as exc:
+            logger.warning(f"手动断开执行器 {actuator_id} close 异常: {exc!r}")
+        # 兜底：半开连接 disconnect 可能不触发，显式注销
+        SocketUserManager.remove_actuator(str(actuator_id), consumer)
+        released = clear_actuator_leases(str(actuator_id))
+        logger.info(f"执行器 {actuator_id} 被手动断开，释放 slot lease {released} 个")
+        return Response({
+            'status': 'success',
+            'message': f'执行器 {actuator_id} 已断开',
+            'released_slots': released,
         })
 
     @action(detail=False, methods=['post'])

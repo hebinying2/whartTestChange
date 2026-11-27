@@ -42,7 +42,7 @@
             </a-tag>
           </template>
         </a-table-column>
-        <a-table-column :title="tl('操作')" :width="200" align="center">
+        <a-table-column :title="tl('操作')" :width="240" align="center">
           <template #cell="{ record }">
             <a-button
               type="text"
@@ -59,6 +59,14 @@
               @click="stopDevice(record)"
             >
               {{ tl('停止') }}
+            </a-button>
+            <a-button
+              type="text"
+              size="mini"
+              status="success"
+              @click="openScreen(record)"
+            >
+              {{ tl('画面') }}
             </a-button>
             <a-button type="text" size="mini" @click="openEdit(record)">
               {{ tl('编辑') }}
@@ -106,6 +114,13 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <AppScreenViewer
+      v-model:visible="screenVisible"
+      :avd-name="screenDevice?.avd_name"
+      :project-id="projectId"
+      :selected-module-id="null"
+    />
   </div>
 </template>
 
@@ -118,6 +133,14 @@ import { useProjectStore } from '@/store/projectStore'
 import { deviceProfileApi } from '../api'
 import type { UiDeviceProfile, UiDeviceProfileForm } from '../types'
 import { uiWebSocket, UiSocketEnum } from '../services/websocket'
+import AppScreenViewer from '../components/AppScreenViewer.vue'
+
+const screenVisible = ref(false)
+const screenDevice = ref<UiDeviceProfile | null>(null)
+const openScreen = (device: UiDeviceProfile) => {
+  screenDevice.value = device
+  screenVisible.value = true
+}
 
 const { tl } = useAppI18n()
 const projectStore = useProjectStore()
@@ -264,8 +287,13 @@ const removeDevice = async (device: UiDeviceProfile) => {
   }
 }
 
-const sendDeviceCommand = (action: 'start' | 'stop', device: UiDeviceProfile) => {
-  uiWebSocket.connect()
+const sendDeviceCommand = async (action: 'start' | 'stop', device: UiDeviceProfile) => {
+  try {
+    await uiWebSocket.connect()
+  } catch {
+    Message.error(tl('WebSocket 连接失败，请刷新页面重试'))
+    return
+  }
   const sent = uiWebSocket.send(
     action === 'start' ? UiSocketEnum.APP_DEVICE_START : UiSocketEnum.APP_DEVICE_STOP,
     {

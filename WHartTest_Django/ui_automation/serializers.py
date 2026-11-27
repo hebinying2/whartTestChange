@@ -324,6 +324,7 @@ class UiTestCaseListSerializer(serializers.ModelSerializer):
         model = UiTestCase
         fields = [
             'id', 'project', 'module', 'module_name', 'name', 'level', 'status',
+            'case_type', 'app_package', 'app_activity', 'device_profile',
             'file_ids', 'step_count', 'creator', 'creator_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['status', 'creator', 'created_at', 'updated_at']

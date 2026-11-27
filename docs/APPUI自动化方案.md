@@ -1,8 +1,27 @@
 # APP UI 自动化方案（第一版）
 
-> 状态：方案沉淀 / 待实施  
+> 状态：方案沉淀 / 阶段 1、2 已实施  
 > 范围：Android 模拟器 + 原生 APP UI 自动化  
 > 目标：在不推翻现有 Web UI 自动化架构的前提下，新增一条 APP 执行链路
+>
+> **实施进度（2026-11-27）**：
+> - ✅ 阶段 1 模拟器管理闭环（含按 AVD 名识别、动态端口、结果落库，自测 selftest_app_device.py 12 通过）
+> - ✅ 阶段 2 APP 执行能力（AppiumExecutor 已接线执行链路，APP 用例执行闭环，自测 selftest_app_case.py 15 通过）
+> - ✅ 阶段 2 增强（2026-11-27 链路联调修复）：执行器账号 API 权限（manage.py grant_actuator_perms）、任务来源登记与结果校验（task_token）、执行人兜底落库、步骤截图上传后端（screenshots/upload/）并可前端展示、未绑定设备自动选用在线设备（模拟器优先）、异常后 Appium session 自动恢复、Web/录制器入口拦截 APP 用例（防误入 Playwright 链路）、APP 步骤前端拖拽排序与上下移动、执行器失活连接自动清理 + 手动断开接口
+> - ✅ 阶段 3 执行画面（2026-11-27，方案 A：adb 截图轮询流，见第 19 章协议）：AppScreenStreamer 接线 TaskConsumer（u_app_screen_start/frame/input/status/stop 五消息全实现）、Django 按 user 定向转发帧（不走组广播）、前端 DeviceProfileList「画面」入口 + AppScreenViewer 组件（画布点击/滑动注入、文本/返回/HOME 注入、推流状态角标）；失败步骤截图已可上传与查看 ✅；⬜ 执行录像未做（第一版可接受）
+> - ✅ 阶段 4 APP 元素采集与点选录制（2026-11-27）：app_elements.py 控件树解析（uiautomator dump XML，可交互节点过滤）、定位生成按 accessibility_id → resource_id → uiautomator → xpath 优先级、画面点选即命中控件生成步骤（录制模式）、录制步骤列表一键保存为 APP 用例（testCaseApi.create）；执行互斥：用例执行期间推流自动降频 2fps→0.5fps
+> - ◐ 阶段 5 部分完成：执行器已上报 app_capability（installed_tools/is_ready）、前后端入口按 case_type 分流；⬜ 环境配置 APP 字段、执行前完整环境校验待做
+>
+> 联调自测：selftest_app_case_route.py（转发/登记/校验 9 通过）、selftest_actuator_disconnect.py（失活清理/断开 11 通过）、selftest_screen_elements.py（画面/解析/推流 12 断言通过）、selftest_app_screen_route.py（帧定向转发/元素路由 9 通过）
+>
+> 首轮联调修复（2026-11-27 12:03）：①横屏模拟器 tap 坐标错位——wm size 返回未旋转尺寸（900x1600），screen_size 改用截图 PNG IHDR 解析（实测 1600x900，tap 桌面图标启动 APP 验证通过）；②adb input text 不支持中文（静默丢字符）——非 ASCII 明确拒绝并经 APP_SCREEN_STATUS(scope=input) 回传前端提示，ASCII 特殊字符（@ 等）转义修复；③录制保存用例 400——module 为必填外键不可传 null，画面组件加模块下拉必选。自测 selftest_screen_fix.py 通过
+>
+> 二轮联调修复（2026-11-27 14:06）：④元素采集报 "could not get idle state"——页面持续动画（EMS 仪表盘图表）致 uiautomator dump 无法进入 idle；两级采集链：adb dump（清理残留 pkill + 递增重试）→ 失败降级 Appium（forceAppLaunch=false attach 前台应用 + waitForIdleTimeout=0 绕过 idle 检测，attach 后需等 3s a11y 树就绪）；⑤解析器兼容两种 XML 格式（uiautomator dump 用 &lt;node&gt; 标签、Appium page_source 用类名标签）；⑥**坐标系根因修正**：模拟器显示方向随前台 APP 动态切换（portrait app 前台时系统转回竖屏），分辨率不能缓存，改为每帧从 PNG IHDR 头解析更新（推流与 tap/控件树坐标系始终与画面一致）；⑦录制步骤列表超长溢出弹窗——右侧面板改 flex 自适应内部滚动。Appium server 由平台负责启动（appium --port 4723）。自测 selftest_screen_elements.py 回归通过、test_coord_mapping.py 实验定位坐标系根因
+>
+> 与原方案的实现差异：
+> - APP 用例为平铺步骤（`UiTestCase.case_type='app'` + `app_steps` JSON），暂未走页面/元素体系
+> - 模拟器识别按 AVD 名（`adb emu avd name`），端口动态分配（5556 起步），因为本机第三方模拟器会抢占 5554
+> - APP 用例执行消息为 `u_app_test_case`，结果复用 `u_case_result`，由 `save_execution_result` 落库
 
 ---
 
@@ -859,6 +878,8 @@ APP 自动化
 
 目标：执行时能看到模拟器画面。
 
+状态：⬜ 待实施。画面嵌入页面的方案对比、消息协议与验收标准见 **第 19 章**（推荐 adb 截图轮询流先行，scrcpy 视频流升级）。
+
 任务：
 
 1. 新增 `app_screen_streamer.py`
@@ -1038,3 +1059,73 @@ appium --port 4723 --allow-insecure=adb_shell
 9. APP 执行记录展示
 10. 环境自检与调度校验
 11. 使用文档与部署说明
+
+---
+
+## 19. 待办：模拟器画面嵌入页面方案评估
+
+> 状态：待实施（对应阶段 3）  
+> 需求：在平台页面上实时查看模拟器画面并进行基本操作，而不是只在本地启动模拟器窗口  
+> 评估时间：2026-11-26
+
+### 19.1 方案对比
+
+| 方案 | 原理 | 帧率/延迟 | 工作量 | 评估结论 |
+|---|---|---|---|---|
+| **A. adb 截图轮询流** | 执行器循环 `adb exec-out screencap` → WS 推帧 → 前端 canvas/img；操作反向下发 `adb input tap` | 2~5 fps / ~300ms | 1~2 天 | **第一阶段采用**。已有 70% 基础（`AppScreenStreamer`），协议与 Web 侧 `EXEC_FRAME` 同构，画布组件可复用 |
+| **B. scrcpy 视频流** | adb 拉起 scrcpy-server，H.264 硬编码 → WebSocket 转发 → 浏览器 WebCodecs 解码；鼠标键盘原生注入 | 30~60 fps / <100ms | 3~5 天 | **第二阶段升级**。参考 ws-scrcpy（NetrisTV）；Google 模拟器 API 34 镜像支持 H.264 硬编码；需引入 Node 服务或自研帧转发 |
+| **C. Google 官方容器方案** | `android-emulator-container-scripts`：Docker + gRPC + WebRTC(janus) | 60 fps / <50ms | 1 周+ | 不采用。本机部署场景架构过重 |
+
+### 19.2 推荐路线：A 先行，B 升级
+
+两阶段共享同一套消息协议，B 阶段只替换推流源与前端解码层，升级无感。
+
+**方案 A 架构：**
+
+```text
+前端 APP 设备页签「实时画面」
+    ↓ u_app_screen_start {avd_name}
+执行器 AppScreenStreamer（2 fps 轮询 adb screencap → base64）
+    ↓ u_app_screen_frame {frame:{w,h,data}} → Django 组转发 → 前端画布
+前端点击/输入
+    ↓ u_app_screen_input {type:'tap'|'text'|'swipe', 坐标}
+执行器 adb input tap / text / swipe
+    ↓ u_app_screen_stop
+结束推流
+```
+
+### 19.3 消息协议设计（新增 5 个）
+
+| 消息 | 方向 | 参数 | 说明 |
+|---|---|---|---|
+| `u_app_screen_start` | 前端→执行器 | `avd_name` / `udid`、`fps` | 开始推流；设备未运行时报错或自动拉起 |
+| `u_app_screen_frame` | 执行器→前端 | `frame: {w, h, data}`（base64 JPEG） | 按 user 定向推送发起人 |
+| `u_app_screen_input` | 前端→执行器 | `type`, 坐标或文本 | tap/text/swipe/key，坐标按设备分辨率比例换算 |
+| `u_app_screen_status` | 执行器→前端 | `streaming`, `fps`, 分辨率 | 推流状态回报 |
+| `u_app_screen_stop` | 前端→执行器 | - | 结束推流，释放轮询任务 |
+
+实现要点：
+
+1. 复用 `AppScreenStreamer`（已实现 adb 截图轮询 → base64 回调），接线到 `TaskConsumer` 并统一帧结构为 `{w, h, data}`
+2. 帧转发沿用 `handle_app_device_result` 的组广播模式，但 `u_app_screen_frame` 按 `user` 定向（只有发起人收帧，避免广播带宽浪费）
+3. 推流与用例执行互斥：Appium session 执行期间暂停/降频轮询，避免 screencap 与 UiAutomator2 抢资源
+4. 单执行器同一时刻只允许 1 路推流；`stop` 必须幂等清理 asyncio 任务
+5. Django 层透传（不落库），断线时执行器检测到连接关闭自动停止推流
+
+### 19.4 第二阶段（方案 B）升级要点
+
+1. 执行器进程内以 `adb forward` + scrcpy-server.jar 拉起视频流，或部署独立 ws-scrcpy Node 服务
+2. H.264 裸流经 WS 转发，前端用 WebCodecs（Chrome/Edge 均支持）解码渲染
+3. 操作注入改走 scrcpy 控制通道（支持多点触控、剪贴板、物理按键），`u_app_screen_input` 协议不变
+4. 兼容性风险：模拟器镜像需支持 H.264 编码（API 34 google_apis 已验证可用）；浏览器需支持 WebCodecs
+
+### 19.5 验收标准
+
+```text
+APP 设备页签可打开「实时画面」窗口
+画面能看到模拟器屏幕（方案 A 2~5 fps）
+点击画布能在模拟器内触发对应坐标点击
+可输入文本、按返回键、上下滑动
+关闭窗口后推流任务被正确清理
+用例执行期间推流自动降频或暂停，互不干扰
+```

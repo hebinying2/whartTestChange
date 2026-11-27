@@ -136,11 +136,25 @@ class SocketUserManager:
     
     @classmethod
     def get_actuator(cls, actuator_id: Optional[str] = None) -> Optional['UiAutomationConsumer']:
-        """获取执行器，如果不指定则返回第一个可用的"""
-        if actuator_id and actuator_id in cls._actuator_users:
-            return cls._actuator_users[actuator_id]
-        if cls._actuator_users:
-            return list(cls._actuator_users.values())[0]
+        """获取执行器，如果不指定则返回第一个可用的。
+
+        半开连接（TCP 未断但 60 秒无任何消息）不可用：跳过并惰性移除，
+        避免任务/指令被转发到已死实例（曾导致 APP 指令发给僵尸连接后石沉大海）。
+        """
+        if actuator_id:
+            return cls._actuator_users.get(actuator_id)
+        import time
+        now = time.monotonic()
+        for aid, consumer in list(cls._actuator_users.items()):
+            if cls.is_actuator_stale(aid):
+                last_seen = cls._actuator_last_seen.get(aid)
+                logger.warning(
+                    f"跳过失活执行器连接: {aid} "
+                    f"(静默 {now - (last_seen or now):.0f}s，惰性移除)")
+                cls._actuator_users.pop(aid, None)
+                cls._actuator_last_seen.pop(aid, None)
+                continue
+            return consumer
         return None
     
     @classmethod
@@ -386,6 +400,11 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 UiSocketEnum.EXEC_FRAME: self.handle_exec_frame,
                 UiSocketEnum.SET_ACTUATOR_INFO: self.handle_set_actuator_info,
                 UiSocketEnum.APP_DEVICE_RESULT: self.handle_app_device_result,
+                # APP 实时画面（帧/状态按发起人定向，不广播不落库）
+                UiSocketEnum.APP_SCREEN_FRAME: self.handle_app_screen_frame,
+                UiSocketEnum.APP_SCREEN_STATUS: self.handle_app_screen_frame,
+                # APP 元素采集结果（阶段 4）
+                UiSocketEnum.APP_ELEMENTS_RESULT: self.handle_app_elements_result,
             }
         else:
             # 前端发送执行请求 -> 转发给执行器
@@ -407,6 +426,12 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 UiSocketEnum.APP_DEVICE_START: self.handle_app_device_command,
                 UiSocketEnum.APP_DEVICE_STOP: self.handle_app_device_command,
                 UiSocketEnum.APP_DEVICE_STATUS: self.handle_app_device_command,
+                UiSocketEnum.APP_TEST_CASE: self.handle_app_device_command,
+                # APP 实时画面与元素采集（透传给执行器）
+                UiSocketEnum.APP_SCREEN_START: self.handle_app_device_command,
+                UiSocketEnum.APP_SCREEN_INPUT: self.handle_app_device_command,
+                UiSocketEnum.APP_SCREEN_STOP: self.handle_app_device_command,
+                UiSocketEnum.APP_ELEMENTS_DUMP: self.handle_app_device_command,
             }
         
         handler = handler_map.get(func_name)
@@ -426,16 +451,25 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
         func_name = getattr(self, '_current_func_name', None)
         actuator = SocketUserManager.get_actuator()
         if not actuator:
+            logger.warning(f"APP 指令转发失败（无可用执行器）: {func_name} args={args}")
             await self.send_json(SocketDataModel(
                 code=ResponseCode.ERROR,
                 msg=self._localize("当前没有可用执行器"),
                 data=QueueModel(func_name=UiSocketEnum.APP_DEVICE_RESULT, func_args={
                     'action': args.get('action') if isinstance(args, dict) else None,
                     'status': 'error',
-                    'message': '当前没有可用执行器',
+                    'message': '当前没有可用执行器，请等待执行器上线后重试',
                 })
             ))
             return
+        logger.info(f"APP 指令转发: {func_name} -> {actuator.user_id} args={args}")
+        # APP 用例执行需登记任务来源（task_token + 发起人近期下发记录），
+        # 否则执行器回传 CASE_RESULT 时会被 verify_result_source 拒绝，
+        # 结果丢弃导致执行记录为空
+        if func_name == UiSocketEnum.APP_TEST_CASE:
+            # 前端消息不带 user 字段，路由层 user 可能为 None；
+            # 落 None 会导致结果回传校验 expected=None ≠ claimed → 结果被拒
+            self.register_actuator_task(actuator, args or {}, user or self.user_id)
         await actuator.send_json(SocketDataModel(
             code=ResponseCode.SUCCESS,
             msg='app_device_command',
@@ -485,6 +519,38 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
             if action == 'stop':
                 return 'stopped'
         return None
+
+    async def _forward_to_web_user(self, user: str, func_name: str, args: dict, msg: str = 'app_screen'):
+        """执行器结果按发起人定向转发（帧流专用，避免组广播浪费带宽）。
+
+        发起人已断线时静默丢弃（推流是易失数据，重连会重新 start）。
+        """
+        web = SocketUserManager.get_web_user(user)
+        if web is None:
+            logger.debug(f"定向转发丢弃（用户不在线）: {user} {func_name}")
+            return
+        try:
+            await web.send_json(SocketDataModel(
+                code=ResponseCode.SUCCESS,
+                msg=msg,
+                user=self.user_id,
+                is_notice=NoticeType.WEB,
+                data=QueueModel(func_name=func_name, func_args=args),
+            ))
+        except Exception as exc:
+            logger.debug(f"定向转发失败: {user} {func_name}: {exc!r}")
+
+    async def handle_app_screen_frame(self, args: dict, user: str):
+        """APP 画面帧/状态 -> 定向转发给发起人（不广播、不落库）。"""
+        # 帧消息不带 task_token 校验（易失数据，无伪造风险敞口）
+        (args or {}).pop('task_token', None)
+        fn = self._current_func_name or UiSocketEnum.APP_SCREEN_FRAME
+        await self._forward_to_web_user(user, fn, args or {})
+
+    async def handle_app_elements_result(self, args: dict, user: str):
+        """APP 元素采集结果 -> 定向转发给发起人。"""
+        (args or {}).pop('task_token', None)
+        await self._forward_to_web_user(user, UiSocketEnum.APP_ELEMENTS_RESULT, args or {})
 
     @sync_to_async
     def _update_device_profile_status(self, avd_name: str, profile_status: str):
@@ -1677,6 +1743,25 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
 
     async def handle_execute_test_case(self, args: dict, user: str):
         """处理执行测试用例请求"""
+        # APP 用例没有页面步骤体系，Web/录制器链路无法执行，直接明确拒绝
+        from .models import UiTestCase
+        case_type = await sync_to_async(
+            UiTestCase.objects.filter(id=args.get('case_id'))
+            .values_list('case_type', flat=True).first
+        )()
+        if case_type == 'app':
+            await self.send_json(SocketDataModel(
+                code=ResponseCode.ERROR,
+                msg=self._localize('APP 用例请在「APP 用例」页签执行'),
+                data=QueueModel(
+                    func_name=UiSocketEnum.TEST_CASE,
+                    func_args={
+                        "case_id": args.get("case_id"),
+                        "error": 'APP 用例请在「APP 用例」页签执行',
+                    },
+                ),
+            ))
+            return
         if args.get('actuator_id') == RECORDER_BROWSER_ID:
             # 前端消息不带 user 字段：用连接注册键定位回执/帧的目标。
             # 独立任务执行：接收循环保持空闲，前端关闭画布的停止请求才能被及时处理
@@ -2002,8 +2087,8 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
             return
         logger.info(f"收到用例结果, 执行用户: {user}")
         
-        # 保存执行结果到数据库
-        await self.save_execution_result(args)
+        # 保存执行结果到数据库（user 为结果回传校验通过的发起人，用作执行人兜底）
+        await self.save_execution_result(args, user)
         
         # 广播给所有前端（避免重复发送）
         await self.channel_layer.group_send(
@@ -2057,7 +2142,7 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
             logger.error(f"更新页面步骤状态失败: {e}")
     
     @sync_to_async
-    def save_execution_result(self, args: dict):
+    def save_execution_result(self, args: dict, claimed_user: Optional[str] = None):
         """保存执行结果到数据库"""
         from .models import UiExecutionRecord, UiTestCase, UiBatchExecutionRecord
         from django.contrib.auth.models import User
@@ -2096,6 +2181,14 @@ class UiAutomationConsumer(AsyncWebsocketConsumer):
                 logger.info(f"找到执行人: id={executor_id}, username={executor.username}")
             except User.DoesNotExist:
                 logger.warning(f"执行人不存在: id={executor_id}")
+        if executor is None and claimed_user:
+            # 兜底：APP 链路前端未传 executor_id，用任务发起人（结果回传校验
+            # 已通过的 claimed_user）解析执行人，避免记录执行人为空
+            try:
+                executor = User.objects.get(username=claimed_user)
+                logger.info(f"执行人兜底解析: username={claimed_user}")
+            except User.DoesNotExist:
+                pass
 
         case_id = args.get('case_id')
         try:

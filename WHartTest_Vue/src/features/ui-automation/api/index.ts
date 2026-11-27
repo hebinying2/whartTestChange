@@ -134,7 +134,7 @@ export const pageStepsDetailedApi = {
 
 // ==================== 测试用例管理 ====================
 export const testCaseApi = {
-  list: (params?: { project?: number; module?: number; level?: string; status?: number; search?: string }) =>
+  list: (params?: { project?: number; module?: number; level?: string; status?: number; case_type?: string; search?: string }) =>
     request.get<PaginatedResponse<UiTestCase>>(`${BASE_URL}/testcases/`, { params }),
 
   get: (id: number) => request.get<UiTestCaseDetail>(`${BASE_URL}/testcases/${id}/`),
@@ -253,6 +253,7 @@ export interface ActuatorInfo {
   ip: string
   type: string
   is_open: boolean
+  is_stale?: boolean
   debug: boolean
   browser_type: string
   headless: boolean
@@ -323,6 +324,13 @@ export const actuatorApi = {
       actuator_id: actuatorId,
       config,
     }),
+
+  /** 手动断开执行器连接（清理僵尸/半开连接） */
+  disconnect: (actuatorId: string) =>
+    request.post<{ message: string; released_slots: number }>(
+      `${BASE_URL}/actuators/disconnect/`,
+      { actuator_id: actuatorId },
+    ),
 }
 
 // ==================== APP 设备配置 ====================

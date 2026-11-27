@@ -262,6 +262,10 @@ class UiTestCase(models.Model):
     """UI 测试用例，由多个页面步骤组成"""
     LEVEL_CHOICES = [('P0', 'P0'), ('P1', 'P1'), ('P2', 'P2'), ('P3', 'P3')]
     STATUS_CHOICES = [(0, _('未执行')), (1, _('执行中')), (2, _('成功')), (3, _('失败'))]
+    CASE_TYPE_CHOICES = [
+        ('web', _('Web 用例')),
+        ('app', _('APP 用例')),
+    ]
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,
@@ -290,6 +294,21 @@ class UiTestCase(models.Model):
     file_ids = models.JSONField(_('附件 file_id 列表'), default=list, blank=True)
     result_data = models.JSONField(_('最近执行结果'), null=True, blank=True)
     error_message = models.TextField(_('错误信息'), null=True, blank=True)
+
+    # ---- APP 用例字段（第一版：平铺步骤，Appium UiAutomator2） ----
+    case_type = models.CharField(
+        _('用例类型'), max_length=16, choices=CASE_TYPE_CHOICES, default='web'
+    )
+    app_package = models.CharField(_('APP 包名'), max_length=255, blank=True, default='')
+    app_activity = models.CharField(_('启动 Activity'), max_length=255, blank=True, default='')
+    app_path = models.CharField(_('APK 路径'), max_length=512, blank=True, default='')
+    app_steps = models.JSONField(_('APP 步骤列表'), default=list, blank=True)
+    device_profile = models.ForeignKey(
+        'UiDeviceProfile', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='app_testcases',
+        verbose_name=_('绑定设备'),
+        help_text=_('APP 用例绑定的设备配置；执行时可被临时选择覆盖')
+    )
     creator = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
         related_name='created_ui_testcases', verbose_name=_('创建人')

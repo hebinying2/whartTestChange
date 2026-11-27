@@ -143,6 +143,8 @@ export interface UiTestCase extends TimeStampFields {
   module_name?: string
   env_config?: number | null
   env_config_name?: string
+  /** 用例类型：web（页面步骤）/ app（Appium 平铺步骤） */
+  case_type?: 'web' | 'app'
   /** 编辑期跨环境登录态预警（详情接口返回）：true = 步骤登录态环境与绑定环境不一致 */
   auth_env_mismatch?: boolean | null
   name: string

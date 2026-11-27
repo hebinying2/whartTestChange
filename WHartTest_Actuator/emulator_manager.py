@@ -29,7 +29,7 @@ def get_emulator_path() -> Optional[str]:
 class EmulatorManager:
     """模拟器启动/停止/状态管理。"""
 
-    def __init__(self, adb_manager: Optional[AdbManager] = None, boot_timeout: int = 120):
+    def __init__(self, adb_manager: Optional[AdbManager] = None, boot_timeout: int = 300):
         self.adb = adb_manager or AdbManager()
         self.boot_timeout = boot_timeout
         self._processes: dict[str, subprocess.Popen] = {}

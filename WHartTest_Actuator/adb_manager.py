@@ -155,3 +155,98 @@ class AdbManager:
             raise RuntimeError(f"ADB 截图失败: {raw.stderr.decode('utf-8', errors='replace')}")
         output.write_bytes(raw.stdout)
         return str(output)
+
+    def screenshot_bytes(self, udid: str) -> bytes:
+        """截图并返回原始 PNG 字节（画面推流用，避免落盘）。"""
+        raw = subprocess.run(
+            [get_adb_path(), '-s', udid, 'exec-out', 'screencap', '-p'],
+            capture_output=True,
+            timeout=self.timeout,
+        )
+        if raw.returncode != 0 or not raw.stdout:
+            raise RuntimeError(f"ADB 截图失败: {raw.stderr.decode('utf-8', errors='replace')}")
+        return raw.stdout
+
+    def screen_size(self, udid: str) -> tuple[int, int]:
+        """读取设备当前实际分辨率 (宽, 高)。
+
+        注意：不能用 `wm size`——横屏模拟器返回未旋转的声明尺寸
+        （实测 900x1600），而 screencap/注入坐标系是 1600x900，
+        会导致画面点击换算完全错位。改从截图 PNG IHDR 头解析
+        （PNG 16-24 字节为宽高，与实际屏幕方向一致）。
+        """
+        import struct
+        data = self.screenshot_bytes(udid)
+        if len(data) < 24:
+            raise RuntimeError('截图数据异常，无法解析分辨率')
+        w, h = struct.unpack('>II', data[16:24])
+        return int(w), int(h)
+
+    def tap(self, udid: str, x: int, y: int):
+        """注入点击。"""
+        return self._run(['shell', 'input', 'tap', str(int(x)), str(int(y))], udid=udid)
+
+    def swipe(self, udid: str, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300):
+        """注入滑动。"""
+        return self._run(
+            ['shell', 'input', 'swipe', str(int(x1)), str(int(y1)),
+             str(int(x2)), str(int(y2)), str(int(duration_ms))], udid=udid)
+
+    def input_text(self, udid: str, text: str):
+        """注入文本（不支持中文，复杂文本走 uiautomator/Appium）。"""
+        return self._run(['shell', 'input', 'text', text], udid=udid)
+
+    def key_event(self, udid: str, keycode: str):
+        """注入按键（BACK=4, HOME=3, ENTER=66 等）。"""
+        return self._run(['shell', 'input', 'keyevent', str(keycode)], udid=udid)
+
+    def dump_ui(self, udid: str, timeout_s: float = 10) -> str:
+        """uiautomator dump 控件树 XML（无需 Appium session 的元素采集来源）。
+
+        屏幕存在动画（图表刷新/加载中/输入法弹出）或残留 dump 进程时，
+        会报 "ERROR: could not get idle state"——先 pkill 清理残留，
+        再递增间隔重试（重试期间动画往往恰好处于间歇静止）。
+        """
+        import time
+        last_err = ''
+        dumped = False
+        for attempt in range(3):
+            self._run(['shell', 'pkill', '-f', 'uiautomator'], udid=udid, check=False)
+            time.sleep(0.5)
+            result = self._run(
+                ['shell', 'uiautomator', 'dump', '/sdcard/uidump.xml'],
+                udid=udid, check=False)
+            out = (result.stdout or '')
+            if 'dumped' in out.lower() or 'uidump' in out.lower():
+                dumped = True
+                break
+            last_err = (out or result.stderr or '').strip()[:140]
+            time.sleep(1.0 + attempt)
+        if not dumped:
+            raise RuntimeError(
+                f'uiautomator dump 失败: {last_err or "未知错误"}'
+                '（屏幕可能存在持续动画/输入法，请稍候重试）')
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            cat = self._run(['shell', 'cat', '/sdcard/uidump.xml'], udid=udid, check=False)
+            content = cat.stdout or ''
+            if content.strip().startswith('<?xml') or '<hierarchy' in content:
+                return content
+            time.sleep(0.5)
+        raise RuntimeError('uiautomator dump 读取超时')
+
+    def current_focus(self, udid: str) -> str:
+        """当前前台窗口（Activity），形如 pkg/.MainActivity。"""
+        result = self._run(['shell', 'dumpsys', 'window', 'displaysize'], udid=udid, check=False)
+        _ = result
+        focus = self._run(
+            ['shell', 'dumpsys', 'activity', 'activities'], udid=udid, check=False)
+        for line in (focus.stdout or '').splitlines():
+            line = line.strip()
+            if line.startswith('topResumedActivity') or line.startswith('mResumedActivity'):
+                # 形如 topResumedActivity=ActivityRecord{... u0 com.pkg/.Activity t123}
+                part = line.split(' ', 1)[1] if ' ' in line else ''
+                for token in part.split():
+                    if '/' in token and '.' in token.split('/')[0]:
+                        return token.rstrip('}')
+        return ''

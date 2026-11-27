@@ -34,8 +34,10 @@
     >
       <template #columns>
         <a-table-column :title="pageText.status" :width="70" align="center">
-          <template #cell>
-            <div class="online-dot"></div>
+          <template #cell="{ record }">
+            <a-tooltip :content="record.is_stale ? pageText.staleTip : pageText.onlineTip">
+              <div :class="record.is_stale ? 'stale-dot' : 'online-dot'"></div>
+            </a-tooltip>
           </template>
         </a-table-column>
         <a-table-column :title="pageText.name" data-index="name" :width="160" />
@@ -79,12 +81,18 @@
             <span class="time-text">{{ formatTime(record.connected_at) }}</span>
           </template>
         </a-table-column>
-        <a-table-column :title="pageText.operations" :width="90" fixed="right" align="center">
+        <a-table-column :title="pageText.operations" :width="130" fixed="right" align="center">
           <template #cell="{ record }">
-            <a-button type="text" size="mini" @click="openEdit(record)">
-              <template #icon><icon-edit /></template>
-              {{ pageText.edit }}
-            </a-button>
+            <a-space :size="2">
+              <a-button type="text" size="mini" @click="openEdit(record)">
+                <template #icon><icon-edit /></template>
+                {{ pageText.edit }}
+              </a-button>
+              <a-button type="text" size="mini" status="danger" @click="confirmDisconnect(record)">
+                <template #icon><icon-close-circle /></template>
+                {{ pageText.disconnect }}
+              </a-button>
+            </a-space>
           </template>
         </a-table-column>
       </template>
@@ -206,8 +214,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { IconRefresh, IconEdit } from '@arco-design/web-vue/es/icon'
-import { Message } from '@arco-design/web-vue'
+import { IconRefresh, IconEdit, IconCloseCircle } from '@arco-design/web-vue/es/icon'
+import { Message, Modal } from '@arco-design/web-vue'
 import type { FormInstance } from '@arco-design/web-vue'
 import { useAppI18n } from '@/composables/useAppI18n'
 import { actuatorApi, type ActuatorInfo, type ActuatorConfigPayload } from '../api'
@@ -238,6 +246,12 @@ const pageText = computed(() => (
         connectedAt: 'Connected at',
         operations: 'Actions',
         edit: 'Edit',
+        disconnect: 'Disconnect',
+        onlineTip: 'Online',
+        staleTip: 'Connection stale (no messages for a while); disconnect to clean up',
+        disconnectConfirm: (name: string) => `Disconnect actuator "${name}"? The process will reconnect automatically if still running.`,
+        disconnectSuccess: (name: string) => `Actuator "${name}" disconnected`,
+        disconnectFailed: 'Failed to disconnect actuator',
         editTitle: 'Edit actuator config',
         saveSuccess: 'Actuator config saved and applied',
         saveFailed: 'Failed to save actuator config',
@@ -288,6 +302,12 @@ const pageText = computed(() => (
         connectedAt: '连接时间',
         operations: '操作',
         edit: '编辑',
+        disconnect: '断开',
+        onlineTip: '在线',
+        staleTip: '连接失活（长时间无消息），建议断开清理',
+        disconnectConfirm: (name: string) => `确定断开执行器「${name}」吗？执行器进程如仍在运行会自动重连。`,
+        disconnectSuccess: (name: string) => `执行器「${name}」已断开`,
+        disconnectFailed: '断开执行器失败',
         editTitle: '编辑执行器配置',
         saveSuccess: '执行器配置已保存并生效',
         saveFailed: '执行器配置保存失败',
@@ -434,6 +454,26 @@ const formRules = {
   viewport_height: [rangeValidator(240, 2160, pageText.value.viewportHeightRange)],
 }
 
+// ==================== 断开执行器 ====================
+const confirmDisconnect = (record: ActuatorInfo) => {
+  const name = record.name || record.id
+  Modal.confirm({
+    title: pageText.value.disconnect,
+    content: pageText.value.disconnectConfirm(name),
+    okButtonProps: { status: 'danger' },
+    onOk: async () => {
+      try {
+        await actuatorApi.disconnect(record.id)
+        Message.success(pageText.value.disconnectSuccess(name))
+        loadActuators()
+      } catch (err: any) {
+        console.error('Disconnect actuator error:', err)
+        Message.error(err?.error || err?.message || pageText.value.disconnectFailed)
+      }
+    },
+  })
+}
+
 const openEdit = (record: ActuatorInfo) => {
   editingRecord.value = record
   Object.assign(formData, {
@@ -556,6 +596,15 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #00b42a;
   box-shadow: 0 0 8px rgba(0, 180, 42, 0.5);
+  display: inline-block;
+}
+
+.stale-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff7d00;
+  box-shadow: 0 0 8px rgba(255, 125, 0, 0.5);
   display: inline-block;
 }
 

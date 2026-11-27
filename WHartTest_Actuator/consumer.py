@@ -27,6 +27,8 @@ from runtime_env import is_trusted_upload_path, resolve_runtime_file_path, trust
 from frame_stream import FrameStreamer, stream_enabled
 from device_manager import DeviceManager
 from appium_executor import AppiumExecutor
+from app_screen_streamer import AppScreenStreamer
+from app_elements import parse_ui_xml
 
 logger = logging.getLogger('actuator')
 
@@ -92,6 +94,10 @@ class TaskConsumer:
         # APP 设备池（第一版仅 Android 模拟器）
         self.device_manager = DeviceManager()
         self.appium_executor = AppiumExecutor()
+        # APP 实时画面推流（单执行器同一时刻仅 1 路，方案 19.3 要点 4）
+        self._screen_streamer: Optional[AppScreenStreamer] = None
+        self._screen_user: Optional[str] = None
+        self._screen_size: Optional[tuple[int, int]] = None
         self._exec_frame_case_id: int = 0
         self._exec_frame_page_step_id: int = 0
         # 观看模式：无头开关关闭（headless=False）时开启画布直播；
@@ -367,6 +373,18 @@ class TaskConsumer:
                 logger.warning(f"处理停止请求异常: {exc}")
             return
 
+        # 画面推流 stop/立即操作不经任务队列：推流可能在执行任务期间
+        # 被前端关闭，入队会被长任务阻塞（task_token 不参与结果校验）
+        fn = socket_data.data.func_name
+        if fn in (UiSocketEnum.APP_SCREEN_STOP, UiSocketEnum.APP_SCREEN_INPUT):
+            try:
+                handler = (self.app_screen_stop if fn == UiSocketEnum.APP_SCREEN_STOP
+                           else self.app_screen_input)
+                await handler(socket_data.data.func_args or {})
+            except Exception as exc:
+                logger.warning(f"处理 APP 画面请求异常: {exc}")
+            return
+
         # 添加到任务队列
         await self.add_task(socket_data.data)
     
@@ -405,6 +423,13 @@ class TaskConsumer:
             UiSocketEnum.APP_DEVICE_START: self.start_app_device,
             UiSocketEnum.APP_DEVICE_STOP: self.stop_app_device,
             UiSocketEnum.APP_DEVICE_STATUS: self.app_device_status,
+            UiSocketEnum.APP_TEST_CASE: self.execute_app_test_case,
+            # APP 实时画面（start/stop 入任务队列立即返回，推流跑后台任务）
+            UiSocketEnum.APP_SCREEN_START: self.app_screen_start,
+            UiSocketEnum.APP_SCREEN_INPUT: self.app_screen_input,
+            UiSocketEnum.APP_SCREEN_STOP: self.app_screen_stop,
+            # APP 元素采集（阶段 4）
+            UiSocketEnum.APP_ELEMENTS_DUMP: self.app_elements_dump,
         }
         
         handler = handlers.get(task.func_name)
@@ -568,6 +593,208 @@ class TaskConsumer:
                 'message': str(exc),
             }, user=self._current_user)
 
+    # ------------------------------------------------------------------
+    # APP 实时画面（方案 19 章：adb 截图轮询流，帧按发起人定向推送）
+    # ------------------------------------------------------------------
+
+    async def app_screen_start(self, args: dict):
+        """开始画面推流。args: {udid?, avd_name?, fps?}"""
+        try:
+            udid = await self._resolve_screen_udid(args)
+            # 单执行器单路推流：已有流先停旧的再开新的（后开者接管）
+            if self._screen_streamer:
+                await self._screen_streamer.stop()
+            self._screen_user = self._current_user
+            self._screen_size = await asyncio.to_thread(
+                self.device_manager.adb.screen_size, udid)
+            fps = float(args.get('fps') or 2.0)
+            self._screen_streamer = AppScreenStreamer(
+                self.device_manager.adb, udid,
+                self._send_screen_frame, fps=fps)
+            await self._screen_streamer.start()
+            await self._send_screen_status({
+                'status': 'success', 'streaming': True, 'udid': udid, 'fps': fps,
+            })
+        except Exception as exc:
+            logger.warning('APP 画面推流启动失败: %r', exc)
+            await self._send_screen_status({
+                'status': 'error', 'streaming': False, 'message': str(exc),
+            })
+
+    async def app_screen_stop(self, args: dict):
+        """结束画面推流（幂等）。"""
+        if self._screen_streamer:
+            udid = self._screen_streamer.udid
+            await self._screen_streamer.stop()
+            self._screen_streamer = None
+            await self._send_screen_status({
+                'status': 'success', 'streaming': False, 'udid': udid,
+            })
+        else:
+            await self._send_screen_status({'status': 'success', 'streaming': False})
+
+    async def app_screen_input(self, args: dict):
+        """画面操作注入。args: {type: tap/text/swipe/key, 坐标为 0~1 比例}。"""
+        udid = self._screen_streamer.udid if self._screen_streamer else None
+        if not udid:
+            udid = await self._resolve_screen_udid(args)
+        size = self._screen_size or await asyncio.to_thread(
+            self.device_manager.adb.screen_size, udid)
+        w, h = size
+        input_type = str(args.get('type') or 'tap').lower()
+        try:
+            if input_type == 'tap':
+                x = float(args.get('x_ratio', args.get('x', 0.5))) * w
+                y = float(args.get('y_ratio', args.get('y', 0.5))) * h
+                await asyncio.to_thread(self.device_manager.adb.tap, udid, x, y)
+            elif input_type == 'text':
+                text = str(args.get('text') or '')
+                # adb shell input text 不支持中文/非 ASCII（实测静默丢字符）。
+                # 中文输入请保存用例后由 Appium send_keys 执行（Appium 支持 Unicode）。
+                if any(ord(c) > 127 for c in text):
+                    raise ValueError(
+                        'adb 注入不支持中文/非 ASCII 字符，请输入英文数字；'
+                        '中文输入请保存用例后执行（Appium 支持中文）')
+                # 设备端 shell 会再解析一次参数：空格→%s（input 内部约定），
+                # 其余 shell 特殊字符加反斜杠转义，保证 email/密码可输入
+                text = text.replace('\\', '\\\\').replace(' ', '%s')
+                text = re.sub(r'([&<>\|;*~"\'`\(\)\[\]$@])', r'\\\1', text)
+                await asyncio.to_thread(self.device_manager.adb.input_text, udid, text)
+            elif input_type == 'swipe':
+                x1 = float(args.get('x1_ratio', 0.5)) * w
+                y1 = float(args.get('y1_ratio', 0.7)) * h
+                x2 = float(args.get('x2_ratio', 0.5)) * w
+                y2 = float(args.get('y2_ratio', 0.3)) * h
+                duration = int(args.get('duration_ms') or 300)
+                await asyncio.to_thread(
+                    self.device_manager.adb.swipe, udid, x1, y1, x2, y2, duration)
+            elif input_type == 'key':
+                await asyncio.to_thread(
+                    self.device_manager.adb.key_event, udid, str(args.get('keycode') or 4))
+            else:
+                raise ValueError(f'不支持的操作类型: {input_type}')
+        except Exception as exc:
+            logger.warning('APP 画面操作注入失败: %r', exc)
+            # 回传给发起人（scope=input），前端提示且不影响推流状态
+            await self.ws_client.send_result(
+                UiSocketEnum.APP_SCREEN_STATUS,
+                {'status': 'error', 'scope': 'input', 'message': str(exc)},
+                user=self._current_user,
+            )
+
+    async def _resolve_screen_udid(self, args: dict) -> str:
+        """确定推流目标设备：显式 udid → avd_name 匹配在线设备 → 第一个模拟器。"""
+        udid = args.get('udid')
+        if udid:
+            return udid
+        avd_name = args.get('avd_name')
+        online = await asyncio.to_thread(self.device_manager.adb.devices) \
+            if self.device_manager.adb else []
+        online = [d for d in online if d.get('status') == 'device']
+        if avd_name:
+            for d in online:
+                if avd_name in (d.get('udid') or '') or avd_name in (d.get('extra') or ''):
+                    return d['udid']
+        emulators = [d for d in online if str(d.get('udid', '')).startswith('emulator-')]
+        if emulators:
+            return emulators[0]['udid']
+        if online:
+            return online[0]['udid']
+        raise ValueError('没有在线设备可推流，请先在 APP 设备页签启动设备')
+
+    async def _send_screen_frame(self, frame_b64: str, raw_bytes: bytes = b''):
+        """推帧给发起人（按 user 定向），并同步坐标系。
+
+        模拟器横竖屏随前台 APP 动态切换（portrait app 前台时显示转回竖屏），
+        分辨率必须每帧从 PNG IHDR 头解析更新，保证 tap 换算与画面一致。
+        """
+        if len(raw_bytes) >= 24:
+            try:
+                import struct
+                w, h = struct.unpack('>II', raw_bytes[16:24])
+                if w and h:
+                    self._screen_size = (int(w), int(h))
+            except Exception:
+                pass
+        if not self._screen_user:
+            return
+        try:
+            await self.ws_client.send_result(
+                UiSocketEnum.APP_SCREEN_FRAME,
+                {'frame': {'data': frame_b64}},
+                user=self._screen_user,
+            )
+        except Exception as e:
+            logger.debug('画面帧推送失败: %s', e)
+
+    async def _send_screen_status(self, result: dict):
+        """回报推流状态给发起人。"""
+        await self.ws_client.send_result(
+            UiSocketEnum.APP_SCREEN_STATUS, result, user=self._screen_user or self._current_user)
+
+    # ------------------------------------------------------------------
+    # APP 元素采集（阶段 4：控件树 dump → 点选生成定位）
+    # ------------------------------------------------------------------
+
+    async def app_elements_dump(self, args: dict):
+        """采集当前页面控件树并生成每个节点的推荐定位。
+
+        args: {udid?, avd_name?, package?}（可选过滤只返回指定 APP 的节点）
+        来源：无 Appium session 时用 adb uiautomator dump（XML），
+        有 session 时优先 driver.page_source（结构一致，同样解析）。
+        """
+        try:
+            udid = await self._resolve_screen_udid(args)
+            # 采集互斥：推流降频，避免 screencap 轮询加剧设备繁忙
+            # （uiautomator dump 对设备 busy 敏感，idle 检测易失败）
+            if self._screen_streamer and self._screen_streamer.running:
+                self._screen_streamer.set_fps(0.3)
+            # 两级采集链：adb uiautomator dump（快）→ 失败降级 Appium
+            # （attach 前台应用 + waitForIdleTimeout=0，可应对持续动画页面）
+            try:
+                xml = await asyncio.to_thread(self.device_manager.adb.dump_ui, udid)
+            except Exception as adb_err:
+                focus = await asyncio.to_thread(
+                    self.device_manager.adb.current_focus, udid)
+                pkg = focus.split('/')[0] if focus else ''
+                if not pkg:
+                    raise RuntimeError(
+                        f'uiautomator dump 失败且无法识别前台应用: {adb_err}') from adb_err
+                logger.info('adb dump 失败(%s)，降级 Appium 采集（前台 %s）',
+                            adb_err, pkg)
+                xml = await asyncio.to_thread(
+                    self.appium_executor.page_source_skip_idle,
+                    udid=udid, device_name=udid, app_package=pkg)
+            nodes = await asyncio.to_thread(parse_ui_xml, xml)
+            package = args.get('package')
+            if package:
+                nodes = [n for n in nodes if n.get('package') == package]
+            # 截图当前画面（前端采集页叠加展示）
+            screenshot_b64 = ''
+            try:
+                data = await asyncio.to_thread(self.device_manager.adb.screenshot_bytes, udid)
+                import base64 as _b64
+                screenshot_b64 = _b64.b64encode(data).decode('ascii')
+            except Exception:
+                pass
+            await self.ws_client.send_result(
+                UiSocketEnum.APP_ELEMENTS_RESULT,
+                {'status': 'success', 'udid': udid, 'nodes': nodes,
+                 'screenshot': screenshot_b64, 'count': len(nodes)},
+                user=self._current_user,
+            )
+        except Exception as exc:
+            logger.warning('APP 元素采集失败: %r', exc)
+            await self.ws_client.send_result(
+                UiSocketEnum.APP_ELEMENTS_RESULT,
+                {'status': 'error', 'message': str(exc)},
+                user=self._current_user,
+            )
+        finally:
+            # 采集结束恢复推流帧率
+            if self._screen_streamer and self._screen_streamer.running:
+                self._screen_streamer.set_fps(2.0)
+
     async def _send_app_device_result(self, action: str, result: dict, user: Optional[str] = None):
         """回传 APP 设备操作结果。"""
         await self.ws_client.send_result(
@@ -578,6 +805,161 @@ class TaskConsumer:
             },
             user=user,
         )
+
+    def _upload_screenshot_file(self, path: str, token: Optional[str]) -> Optional[str]:
+        """上传执行截图到后端，返回可访问 URL（/media/ui_screenshots/...）。
+
+        本地相对路径直接入库会导致前端展示 404（截图在执行器机器上）。
+        """
+        import httpx as _httpx
+
+        if not os.path.exists(path):
+            return None
+        url = f"{self.api_base_url}/api/ui-automation/screenshots/upload/"
+        try:
+            with open(path, 'rb') as f:
+                with _httpx.Client(timeout=30) as client:
+                    response = client.post(
+                        url,
+                        headers=self._auth_headers(token),
+                        files={'file': (os.path.basename(path), f, 'image/png')},
+                    )
+            if response.status_code in (200, 201):
+                data = response.json()
+                inner = data.get('data') if isinstance(data.get('data'), dict) else data
+                return inner.get('url')
+            logger.error(f"截图上传失败: {response.status_code} - {path}")
+        except Exception as exc:
+            logger.error(f"截图上传异常: {exc!r} - {path}")
+        return None
+
+    async def execute_app_test_case(self, args: dict):
+        """执行 APP 用例（Appium UiAutomator2）。
+
+        args: {case_id, executor_id?, executor_name?, udid?, avd_name?, trigger_type?}
+        数据来源：GET /api/ui-automation/testcases/{id}/app-execute-data/
+        结果：复用 CASE_RESULT 消息，由后端 save_execution_result 落库。
+        """
+        case_id = args.get('case_id')
+        summary: dict = {'case_id': case_id, 'status': 'failed', 'message': '',
+                         'total_steps': 0, 'passed_steps': 0, 'failed_steps': 0,
+                         'duration': 0, 'steps': []}
+        try:
+            if not case_id:
+                raise ValueError('缺少 case_id')
+
+            data = await self._api_get(
+                f"/api/ui-automation/testcases/{case_id}/app-execute-data/")
+            if not data:
+                raise RuntimeError('获取 APP 用例执行数据失败（接口无返回或认证失败）')
+
+            steps = data.get('app_steps') or []
+            device = data.get('device') or {}
+
+            # 定位设备：前端临时选择优先，其次用例绑定设备；
+            # 再兜底当前在线设备；最后尝试自动拉起模拟器
+            udid = args.get('udid')
+            avd_name = args.get('avd_name') or device.get('avd_name')
+            if not udid:
+                # 兜底 1：已有在线设备（含手动启动的模拟器/真机）直接复用；
+                # 多设备时优先选模拟器（APP 自动化默认目标），真机靠后
+                online = await asyncio.to_thread(self.device_manager.adb.devices) \
+                    if self.device_manager.adb else []
+                online = [d for d in online if d.get('status') == 'device']
+                online.sort(key=lambda d: 0 if str(d.get('udid', '')).startswith('emulator-') else 1)
+                if online:
+                    udid = online[0].get('udid')
+                    logger.info(f"用例未绑定设备，自动选用在线设备: {udid}")
+            if not udid and avd_name:
+                started = await asyncio.to_thread(
+                    self.device_manager.start_device,
+                    avd_name=avd_name,
+                    headless=bool(device.get('headless', True)),
+                )
+                udid = started.get('udid')
+            if not udid:
+                raise ValueError('未找到可用设备：请先在 APP 设备页签启动设备，或为用例绑定设备')
+
+            # 确保 Appium server 就绪
+            await asyncio.to_thread(self.device_manager.ensure_appium_server)
+
+            # 建 Appium session 并执行
+            device_name = device.get('name') or avd_name or udid
+            caps = self.appium_executor.build_capabilities(
+                udid=udid,
+                device_name=device_name,
+                app_package=data.get('app_package'),
+                app_activity=data.get('app_activity'),
+                app_path=data.get('app_path'),
+            )
+            # 执行互斥（方案 19.3 要点 3）：画面推流期间执行用例 → 降频轮询，
+            # 避免 screencap 与 UiAutomator2 抢资源；执行结束恢复
+            if self._screen_streamer and self._screen_streamer.running:
+                self._screen_streamer.set_fps(0.5)
+            await asyncio.to_thread(self.appium_executor.start_session, caps)
+            try:
+                result = await asyncio.to_thread(
+                    self.appium_executor.execute_simple_steps, steps)
+            finally:
+                await asyncio.to_thread(self.appium_executor.close_session)
+                if self._screen_streamer and self._screen_streamer.running:
+                    self._screen_streamer.set_fps(2.0)
+
+            # 截图上传：本地路径 → 后端可访问 URL（否则前端展示 404）
+            upload_token = await self._get_api_token()
+            for s in result.get('steps', []):
+                sp = s.get('screenshot')
+                if sp and not str(sp).startswith(('/media/', 'http')):
+                    uploaded = await asyncio.to_thread(
+                        self._upload_screenshot_file, sp, upload_token)
+                    if uploaded:
+                        s['screenshot'] = uploaded
+
+            summary.update({
+                'case_id': case_id,
+                'status': result.get('status', 'failed'),
+                'message': '执行完成',
+                'total_steps': result.get('total_steps', 0),
+                'passed_steps': result.get('passed_steps', 0),
+                'failed_steps': result.get('failed_steps', 0),
+                'duration': result.get('duration', 0),
+                'steps': [
+                    {
+                        'step_id': s.get('step_id'),
+                        'status': s.get('status'),
+                        'message': s.get('message', ''),
+                        'screenshot': s.get('screenshot'),
+                        'duration': s.get('duration', 0),
+                        'element_found': True,
+                    }
+                    for s in result.get('steps', [])
+                ],
+                'trigger_type': args.get('trigger_type') or 'manual',
+                'executor_id': args.get('executor_id'),
+                'executor_name': args.get('executor_name'),
+                'environment': {
+                    'case_type': 'app',
+                    'udid': udid,
+                    'avd_name': avd_name,
+                    'app_package': data.get('app_package'),
+                    'device_name': device_name,
+                },
+            })
+            logger.info('APP 用例 %s 执行完成: %s (%s/%s 步通过)',
+                        case_id, summary['status'],
+                        summary['passed_steps'], summary['total_steps'])
+        except Exception as exc:
+            logger.warning('执行 APP 用例失败: %r', exc)
+            summary['message'] = str(exc)
+            summary['failed_steps'] = max(summary['failed_steps'], 1)
+            # 异常路径兜底回收 session，确保执行器能自动恢复执行后续任务
+            try:
+                await asyncio.to_thread(self.appium_executor.close_session)
+            except Exception:
+                pass
+        finally:
+            await self.ws_client.send_result(
+                UiSocketEnum.CASE_RESULT, summary, user=self._current_user)
 
     def _persist_config(self, updates: dict) -> None:
         """把配置更新写回 config.toml（保留 server/actuator 等未编辑内容）"""

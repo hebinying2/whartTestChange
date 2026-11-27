@@ -38,6 +38,16 @@ class UiSocketEnum:
     APP_DEVICE_STOP = 'u_app_device_stop'         # APP 设备停止（前端→执行器）
     APP_DEVICE_STATUS = 'u_app_device_status'     # APP 设备状态查询（前端→执行器）
     APP_DEVICE_RESULT = 'u_app_device_result'     # APP 设备操作结果（执行器→前端）
+    APP_TEST_CASE = 'u_app_test_case'             # APP 用例执行（前端→执行器）
+    # APP 实时画面（adb 截图轮询流，方案第 19 章协议）
+    APP_SCREEN_START = 'u_app_screen_start'       # 开始推流（前端→执行器）
+    APP_SCREEN_FRAME = 'u_app_screen_frame'       # 画面帧（执行器→前端，按发起人定向）
+    APP_SCREEN_INPUT = 'u_app_screen_input'       # 画面操作注入 tap/text/swipe/key（前端→执行器）
+    APP_SCREEN_STATUS = 'u_app_screen_status'     # 推流状态回报（执行器→前端）
+    APP_SCREEN_STOP = 'u_app_screen_stop'         # 结束推流（前端→执行器）
+    # APP 元素采集（阶段 4）
+    APP_ELEMENTS_DUMP = 'u_app_elements_dump'     # 采集当前控件树（前端→执行器）
+    APP_ELEMENTS_RESULT = 'u_app_elements_result' # 控件树/定位结果（执行器→前端）
     # 录制器
     RECORDER_START = 'u_recorder_start'    # 前端→后端：绑定录制会话，启动帧中继
     RECORDER_INPUT = 'u_recorder_input'    # 前端→后端：浏览器输入事件（鼠标/键盘/滚轮）

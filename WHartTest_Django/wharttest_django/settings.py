@@ -598,6 +598,12 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        # UI 自动化应用日志（设备控制/用例执行/结果落库链路的 INFO 均依赖此配置）
+        "ui_automation": {
+            "handlers": ["console", "app_file", "error_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
         # Testcases应用日志
         "testcases": {
             "handlers": ["console", "app_file", "error_file"],

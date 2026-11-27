@@ -361,6 +361,7 @@ const pageText = computed(() => (
         batchDeleteSuccess: (count: number) => `Deleted ${count} cases successfully`,
         caseRunSuccess: (passed: number, total: number) => `Case execution succeeded: ${passed}/${total} steps passed`,
         caseRunFailed: (message: string) => `Case execution failed: ${message}`,
+        appCaseRedirect: 'APP cases must be run from the "APP Cases" tab',
       }
     : {
         selectModule: '选择模块',
@@ -443,6 +444,7 @@ const pageText = computed(() => (
         batchDeleteSuccess: (count: number) => `成功删除 ${count} 个用例`,
         caseRunSuccess: (passed: number, total: number) => `用例执行成功: ${passed}/${total} 步骤通过`,
         caseRunFailed: (message: string) => `用例执行失败: ${message}`,
+        appCaseRedirect: 'APP 用例请在「APP 用例」页签执行',
       }
 ))
 
@@ -857,6 +859,11 @@ const selectAvailableActuator = (needSlots = 1): string | undefined => {
 }
 
 const runTestCase = async (record: UiTestCase) => {
+  // APP 用例没有页面步骤体系，走 Web/录制器链路必然失败，明确引导
+  if (record.case_type === 'app') {
+    Message.warning(pageText.value.appCaseRedirect)
+    return
+  }
   // 先获取执行器列表
   await fetchActuators()
 
@@ -911,6 +918,12 @@ const runTestCase = async (record: UiTestCase) => {
 const runBatchTestCases = async () => {
   if (selectedRowKeys.value.length === 0) {
     Message.warning(pageText.value.selectCasesToRun)
+    return
+  }
+  // 选中项含 APP 用例时拦截（Web 批量链路无法执行 APP 用例）
+  const selectedCases = testcaseData.value.filter(tc => selectedRowKeys.value.includes(tc.id))
+  if (selectedCases.some(tc => tc.case_type === 'app')) {
+    Message.warning(pageText.value.appCaseRedirect)
     return
   }
   // 批量执行一律后台执行，不弹执行画面

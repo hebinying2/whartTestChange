@@ -45,6 +45,9 @@
         <a-tab-pane key="app-devices" :title="tl('APP 设备')">
           <DeviceProfileList ref="deviceProfileListRef" />
         </a-tab-pane>
+        <a-tab-pane key="app-cases" :title="tl('APP 用例')">
+          <AppCaseList ref="appCaseListRef" :selected-module-id="selectedModuleId" />
+        </a-tab-pane>
       </a-tabs>
       <GenerateUiCasesModal
         v-model:visible="showGenerateModal"
@@ -71,6 +74,7 @@ import PublicDataList from './PublicDataList.vue'
 import EnvConfigList from './EnvConfigList.vue'
 import ActuatorList from './ActuatorList.vue'
 import DeviceProfileList from './DeviceProfileList.vue'
+import AppCaseList from './AppCaseList.vue'
 import GenerateUiCasesModal from '../components/generate/GenerateUiCasesModal.vue'
 import { sendChatMessageStream } from '@/features/langgraph/services/chatService'
 import type { ChatRequest } from '@/features/langgraph/types/chat'
@@ -99,7 +103,8 @@ const publicDataListRef = ref()
 const envConfigListRef = ref()
 const actuatorListRef = ref()
 const deviceProfileListRef = ref()
-void [modulePanelRef, pageListRef, pageStepListRef, testCaseListRef, executionRecordListRef, batchRecordListRef, publicDataListRef, envConfigListRef, actuatorListRef, deviceProfileListRef]
+const appCaseListRef = ref()
+void [modulePanelRef, pageListRef, pageStepListRef, testCaseListRef, executionRecordListRef, batchRecordListRef, publicDataListRef, envConfigListRef, actuatorListRef, deviceProfileListRef, appCaseListRef]
 
 // ---------------------------------------------------------------------------
 // AI 一键生成 UI 用例
@@ -248,6 +253,9 @@ watch(activeTab, (newTab) => {
     case 'app-devices':
       deviceProfileListRef.value?.refresh?.()
       break
+    case 'app-cases':
+      appCaseListRef.value?.refresh?.()
+      break
   }
 })
 
@@ -260,6 +268,7 @@ const onModuleUpdated = async () => {
   pageListRef.value?.refresh?.()
   pageStepListRef.value?.refresh?.()
   testCaseListRef.value?.refresh?.()
+  appCaseListRef.value?.refresh?.()
 }
 </script>
 
